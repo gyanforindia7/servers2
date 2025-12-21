@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { getPageBySlug } from '../services/db';
 import { PageContent } from '../types';
 import { SEO } from '../components/SEO';
@@ -10,15 +11,24 @@ export const DynamicPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (slug) {
-      const p = getPageBySlug(slug);
-      setPage(p);
-      setLoading(false);
-      window.scrollTo(0, 0);
-    }
+    const loadPage = async () => {
+      if (slug) {
+        setLoading(true);
+        try {
+          const p = await getPageBySlug(slug);
+          setPage(p);
+        } catch (err) {
+          console.error("Error loading page:", err);
+        } finally {
+          setLoading(false);
+        }
+        window.scrollTo(0, 0);
+      }
+    };
+    loadPage();
   }, [slug]);
 
-  if (loading) return null;
+  if (loading) return <div className="p-20 text-center text-slate-500">Loading page...</div>;
   if (!page) return <div className="p-20 text-center text-slate-500">Page not found</div>;
 
   return (
@@ -29,15 +39,15 @@ export const DynamicPage: React.FC = () => {
         type="article"
       />
       
-      <div className="bg-slate-50 min-h-screen py-16">
+      <div className="bg-slate-50 dark:bg-slate-950 min-h-screen py-16">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 p-8 md:p-12">
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-8 border-b border-slate-100 pb-6">
+          <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 md:p-12">
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-8 border-b border-slate-100 dark:border-slate-800 pb-6">
               {page.title}
             </h1>
             
             <div 
-              className="prose prose-slate max-w-none prose-headings:font-bold prose-headings:text-slate-900 prose-a:text-blue-600"
+              className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-bold prose-headings:text-slate-900 dark:prose-headings:text-white prose-a:text-blue-600"
               dangerouslySetInnerHTML={{ __html: page.content }}
             />
           </div>
