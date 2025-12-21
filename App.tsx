@@ -67,13 +67,29 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
 const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [settings, setSettings] = useState<SiteSettings>(getSiteSettings());
+  // Initialize with empty defaults to prevent "undefined" crashes before API responds
+  const [settings, setSettings] = useState<SiteSettings>({
+    id: 'settings',
+    supportPhone: 'Loading...',
+    supportEmail: 'loading@example.com',
+    address: 'Loading address...',
+    whatsappNumber: ''
+  });
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
   useEffect(() => {
-    // In a real app we'd check session/token
+    // Fetch settings on mount
+    const loadSettings = async () => {
+        try {
+            const data = await getSiteSettings();
+            if (data) setSettings(data);
+        } catch (err) {
+            console.error("Failed to load settings:", err);
+        }
+    };
+    loadSettings();
   }, []);
 
   const addToCart = (product: Product, qty: number) => {
@@ -101,8 +117,8 @@ const App: React.FC = () => {
     setIsQuoteOpen(true);
   };
 
-  const updateSettings = (newSettings: SiteSettings) => {
-    saveSiteSettings(newSettings);
+  const updateSettings = async (newSettings: SiteSettings) => {
+    await saveSiteSettings(newSettings);
     setSettings(newSettings);
   };
 
