@@ -88,7 +88,7 @@ export const AdminDashboard: React.FC = () => {
                 You are currently looking at the <strong>Service List</strong>. You must click the <strong>blue name</strong> of your service (e.g., <span className="underline decoration-wavy">servers2-app</span>) in the table.
               </p>
               <div className="bg-blue-800/50 rounded-lg p-3 text-[10px] font-mono border border-white/5">
-                Cloud Run > <span className="text-white">servers2-app</span>
+                Cloud Run &gt; <span className="text-white">servers2-app</span>
               </div>
             </div>
 
