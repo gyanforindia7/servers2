@@ -22,7 +22,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [expandedMobileCats, setExpandedMobileCats] = useState<string[]>([]);
   
   const [categoryTree, setCategoryTree] = useState<Category[]>([]);
-  const [pages, setPages] = useState<PageContent[]>([]);
+  const [navPages, setNavPages] = useState<PageContent[]>([]);
   const [footerCategories, setFooterCategories] = useState<Category[]>([]);
   const [footerPages, setFooterPages] = useState<PageContent[]>([]);
 
@@ -47,7 +47,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       setCategoryTree(hierarchy.filter(c => c.showInMenu !== false));
       
       const allPages = await getPages();
-      setPages(allPages.filter(p => p.showInMenu !== false));
+      setNavPages(allPages.filter(p => p.showInMenu !== false));
       
       const allCategories = await getCategories();
       setFooterCategories(allCategories.filter(c => !c.parentId && c.showInFooter !== false));
@@ -129,7 +129,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <span className="flex items-center gap-2 shrink-0"><Mail size={12} /> {settings.supportEmail}</span>
           </div>
           <div className="flex gap-4 shrink-0">
-            <Link to="/admin" className="hover:text-white transition-colors">Admin</Link>
+            <Link to="/admin" className="hover:text-white transition-colors">Admin Portal</Link>
           </div>
         </div>
       </div>
@@ -151,21 +151,21 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <div className="bg-blue-600 text-white p-1.5 rounded-lg shrink-0">
                     <Server size={20} />
                   </div>
-                  <span className="hidden sm:inline font-bold text-lg text-slate-900 dark:text-white">SERVERS <span className="text-blue-600">2</span></span>
-                  <span className="sm:hidden font-bold text-slate-900 dark:text-white">S2</span>
+                  <span className="hidden sm:inline font-bold text-lg text-slate-900 dark:text-white uppercase tracking-tighter">SERVERS <span className="text-blue-600">2</span></span>
+                  <span className="sm:hidden font-bold text-slate-900 dark:text-white uppercase tracking-tighter">S2</span>
                 </div>
               )}
             </Link>
 
             {/* Desktop Nav */}
             <nav className="hidden xl:flex items-center gap-6 flex-wrap justify-end mx-4">
-              <Link to="/" className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 uppercase tracking-wide">Home</Link>
+              <Link to="/" className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 uppercase tracking-wide">Home</Link>
               
               {categoryTree.map((cat) => (
                 <div key={cat.id} className="relative group">
                     <Link 
                       to={`/category/${cat.slug}`}
-                      className="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase tracking-wide flex items-center gap-1 py-6"
+                      className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase tracking-wide flex items-center gap-1 py-6"
                     >
                       {cat.name} {cat.children && cat.children.length > 0 && <ChevronDown size={12} />}
                     </Link>
@@ -184,6 +184,16 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                         </div>
                     )}
                 </div>
+              ))}
+              
+              {navPages.map(page => (
+                <Link 
+                  key={page.id} 
+                  to={`/page/${page.slug}`} 
+                  className="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors uppercase tracking-wide"
+                >
+                  {page.title}
+                </Link>
               ))}
             </nav>
 
@@ -254,7 +264,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 onClick={() => openQuoteModal()}
                 className="hidden md:flex items-center gap-2 bg-slate-900 dark:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors"
               >
-                <FileText size={16} /> <span className="hidden lg:inline">Quote</span>
+                <FileText size={16} /> <span className="hidden lg:inline">Get Quote</span>
               </button>
 
               <Link to="/cart" className="relative p-2 text-slate-600 dark:text-slate-400 hover:text-blue-600">
@@ -281,9 +291,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       <p className="text-xs text-slate-500 truncate">{user.email}</p>
                     </div>
                     {user.role === 'admin' ? (
-                      <Link to="/admin" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Admin Panel</Link>
+                      <Link to="/admin" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Admin Dashboard</Link>
                     ) : (
-                      <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Orders</Link>
+                      <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">My Orders</Link>
                     )}
                     <button 
                       onClick={() => { logout(); setIsProfileOpen(false); }}
@@ -314,7 +324,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
           <div className="relative w-[85%] max-w-[320px] bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
             <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
-               <span className="font-bold dark:text-white">Navigation</span>
+               <span className="font-bold dark:text-white uppercase tracking-widest text-sm">Main Menu</span>
                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-500 dark:text-slate-400">
                  <X size={24} />
                </button>
@@ -333,14 +343,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </button>
               </form>
               <nav className="flex flex-col gap-1">
-                <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-semibold text-slate-900 dark:text-white py-3 border-b dark:border-slate-800">Home</Link>
+                <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-bold text-slate-900 dark:text-white py-3 border-b dark:border-slate-800 uppercase tracking-wide">Home</Link>
                 
                 {categoryTree.map((cat) => (
                   <div key={cat.id} className="border-b dark:border-slate-800 last:border-0">
                       <div className="flex items-center justify-between py-3">
                         <Link 
                             to={`/category/${cat.slug}`}
-                            className="text-base font-semibold text-slate-900 dark:text-white flex-1"
+                            className="text-base font-bold text-slate-900 dark:text-white flex-1 uppercase tracking-wide"
                             onClick={() => setIsMobileMenuOpen(false)}
                         >
                             {cat.name}
@@ -368,8 +378,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   </div>
                 ))}
                 
-                {pages.map(page => (
-                     <Link key={page.id} to={`/page/${page.slug}`} onClick={() => setIsMobileMenuOpen(false)} className="text-base font-semibold text-slate-900 dark:text-white py-3 border-b dark:border-slate-800">
+                {navPages.map(page => (
+                     <Link key={page.id} to={`/page/${page.slug}`} onClick={() => setIsMobileMenuOpen(false)} className="text-base font-bold text-slate-900 dark:text-white py-3 border-b dark:border-slate-800 uppercase tracking-wide">
                         {page.title}
                      </Link>
                 ))}
@@ -380,7 +390,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 onClick={() => { setIsMobileMenuOpen(false); openQuoteModal(); }}
                 className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
               >
-                <FileText size={18} /> Request Quote
+                <FileText size={18} /> Get Custom Quote
               </button>
             </div>
           </div>
@@ -391,20 +401,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         {children}
       </main>
 
-      <footer className="bg-slate-900 dark:bg-slate-950 text-slate-400 py-12 md:py-20">
+      <footer className="bg-slate-900 dark:bg-slate-950 text-slate-400 py-12 md:py-20 border-t dark:border-slate-900">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
             <div>
-              <h3 className="text-white text-lg font-bold mb-4">About SERVERS 2</h3>
+              <h3 className="text-white text-lg font-bold mb-4 uppercase tracking-wider">About SERVERS 2</h3>
               <p className="text-sm leading-relaxed mb-6">
-                Premium enterprise hardware provider since 2010. We specialize in certified refurbished and new IT infrastructure solutions.
+                Premium enterprise hardware provider since 2010. We specialize in certified refurbished and new IT infrastructure solutions, powering businesses with reliable tech.
               </p>
-              <div className="flex items-center gap-4">
-                {/* Social links could go here */}
-              </div>
             </div>
             <div>
-              <h3 className="text-white text-lg font-bold mb-4">Quick Links</h3>
+              <h3 className="text-white text-lg font-bold mb-4 uppercase tracking-wider">Solutions</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link to="/" className="hover:text-blue-400 transition-colors">Home</Link></li>
                 {footerCategories.map(cat => (
@@ -415,7 +422,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               </ul>
             </div>
             <div>
-              <h3 className="text-white text-lg font-bold mb-4">Support</h3>
+              <h3 className="text-white text-lg font-bold mb-4 uppercase tracking-wider">Support</h3>
               <ul className="space-y-3 text-sm">
                 <li><Link to="/contact" className="hover:text-blue-400 transition-colors">Contact Us</Link></li>
                 {footerPages.map(page => (
@@ -426,7 +433,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               </ul>
             </div>
             <div>
-               <h3 className="text-white text-lg font-bold mb-4">Get In Touch</h3>
+               <h3 className="text-white text-lg font-bold mb-4 uppercase tracking-wider">Contact Details</h3>
                <ul className="space-y-4 text-sm">
                  <li className="flex gap-3"><MapPin size={18} className="text-blue-600 shrink-0"/> <span className="max-w-[200px]">{settings.address}</span></li>
                  <li className="flex gap-3"><Phone size={18} className="text-blue-600 shrink-0"/> <span>{settings.supportPhone}</span></li>
@@ -435,7 +442,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </div>
           </div>
           <div className="border-t border-slate-800 dark:border-slate-900 mt-12 pt-8 text-center text-[10px] md:text-xs">
-            &copy; {new Date().getFullYear()} SERVERS 2. All rights reserved. Registered Enterprise Provider.
+            &copy; {new Date().getFullYear()} SERVERS 2. All rights reserved. Registered Enterprise Hardware Provider.
           </div>
         </div>
       </footer>
