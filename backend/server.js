@@ -1,3 +1,4 @@
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -100,12 +101,18 @@ if (mongoUri) {
 app.use('/api', apiRoutes);
 
 // Production Static Files Serving
-if (process.env.NODE_ENV === 'production') {
-  const distPath = path.resolve(__dirname, 'dist');
+// This block ensures the app works correctly on Google Cloud Run
+if (process.env.NODE_ENV === 'production' || process.env.PORT) {
+  // Since this file is in /backend, we go up one level to the root where /dist lives
+  const distPath = path.resolve(__dirname, '..', 'dist');
+  
+  // Serve static files (js, css, images) from the dist folder
   app.use(express.static(distPath));
   
-  // Route handling: API routes go to apiRoutes, everything else to index.html
-  app.get(/^(?!\/api).*$/, (req, res) => {
+  // SPA logic: Any request that doesn't match an API route or a static file 
+  // should serve index.html so the React Router can take over.
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) return; // Fall through for API errors
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
