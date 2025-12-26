@@ -1,3 +1,4 @@
+
 import { Product, Order, User, SiteSettings, Category, Brand, PageContent, ContactMessage, QuoteRequest, Coupon, BlogPost, INITIAL_CATEGORY_NAMES } from '../types';
 import { INITIAL_PRODUCTS } from '../constants';
 
@@ -193,7 +194,7 @@ export const getOrderById = async (id: string): Promise<Order | undefined> => {
 // --- Auth ---
 export const authenticateUser = async (email: string, password: string): Promise<User | undefined> => {
     try {
-        if (email === 'admin@serverpro.com' && password === 'ServerPro@2024') {
+        if (email === 'gyanforindia7@gmail.com' && password === 'Jaimatadi@16@') {
             return { id: 'admin', name: 'Super Admin', email, role: 'admin' };
         }
         return undefined;
