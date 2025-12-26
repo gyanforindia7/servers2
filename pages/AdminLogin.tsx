@@ -66,16 +66,6 @@ export const AdminLogin: React.FC = () => {
             <Lock size={18} /> Authenticate
           </button>
         </form>
-        
-        <div className="mt-8 pt-6 border-t border-slate-100">
-           <div className="bg-slate-50 p-4 rounded-lg text-center">
-             <p className="text-xs text-slate-500 font-medium mb-1">Access Credentials</p>
-             <div className="text-xs font-mono text-slate-700 bg-white p-2 rounded border border-slate-200">
-               ID: gyanforindia7@gmail.com<br/>
-               Pass: Jaimatadi@16@
-             </div>
-           </div>
-        </div>
       </div>
     </div>
   );
