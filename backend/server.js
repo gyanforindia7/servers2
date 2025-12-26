@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const apiRoutes = require('./routes');
 const { Product, Category } = require('./models');
 require('dotenv').config();
@@ -14,9 +15,14 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Health Check
+// Health Check - Always reachable
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Backend is running', timestamp: new Date() });
+    res.json({ 
+        status: 'ok', 
+        message: 'Backend is running', 
+        timestamp: new Date(),
+        env: process.env.NODE_ENV || 'development'
+    });
 });
 
 // Database Connection & Auto-Seeding
@@ -28,7 +34,6 @@ const seedDatabase = async () => {
         if (productCount === 0) {
             console.log('Database empty. Seeding initial data...');
             
-            // Initial Categories
             const categoryNames = ['Servers', 'Storage', 'Workstations', 'Laptops', 'Option & Spares'];
             const categories = categoryNames.map((name, i) => ({
                 id: `cat-${i+1}`,
@@ -41,7 +46,6 @@ const seedDatabase = async () => {
             }));
             await Category.insertMany(categories);
 
-            // Initial Products
             const products = [
                 {
                     id: 'p1',
@@ -94,30 +98,53 @@ if (mongoUri) {
   })
   .catch(err => console.error('MongoDB Connection Error:', err));
 } else {
-    console.warn('MONGO_URI not found. Backend will run but data may not be persistent.');
+    console.warn('MONGO_URI not found. Running with transient data.');
 }
 
 // API Routes
 app.use('/api', apiRoutes);
 
-// Production Static Files Serving
-// This block ensures the app works correctly on Google Cloud Run
-if (process.env.NODE_ENV === 'production' || process.env.PORT) {
-  // Since this file is in /backend, we go up one level to the root where /dist lives
-  const distPath = path.resolve(__dirname, '..', 'dist');
-  
-  // Serve static files (js, css, images) from the dist folder
-  app.use(express.static(distPath));
-  
-  // SPA logic: Any request that doesn't match an API route or a static file 
-  // should serve index.html so the React Router can take over.
-  app.get('*', (req, res) => {
-    if (req.path.startsWith('/api')) return; // Fall through for API errors
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+// Production Configuration
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.PORT;
+
+if (isProduction) {
+    // Attempt to find the dist folder in root or one level up
+    let distPath = path.join(process.cwd(), 'dist');
+    
+    if (!fs.existsSync(distPath)) {
+        // Fallback for cases where script might be running from inside /backend
+        distPath = path.join(process.cwd(), '..', 'dist');
+    }
+
+    if (fs.existsSync(distPath)) {
+        console.log(`Serving production static files from: ${distPath}`);
+        
+        // Serve static assets
+        app.use(express.static(distPath));
+
+        // SPA Catch-all: Route everything else to index.html
+        app.get('*', (req, res) => {
+            // Avoid intercepting API calls
+            if (req.path.startsWith('/api')) {
+                return res.status(404).json({ error: 'API Endpoint Not Found' });
+            }
+            
+            const indexPath = path.join(distPath, 'index.html');
+            if (fs.existsSync(indexPath)) {
+                res.sendFile(indexPath);
+            } else {
+                res.status(404).send('Frontend build (index.html) missing. Please run build command.');
+            }
+        });
+    } else {
+        console.error('CRITICAL: Static "dist" folder not found. Frontend will not be served.');
+        app.get('/', (req, res) => {
+            res.status(500).send('Production build not found. Ensure "npm run build" has been executed.');
+        });
+    }
 }
 
-// Global 404 for API endpoints that are not handled by apiRoutes
+// Global 404 for API
 app.use('/api/*', (req, res) => {
     res.status(404).json({ 
         error: 'Not Found', 
