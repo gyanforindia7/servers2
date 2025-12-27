@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Box, FileText, ArrowRight, Tag, Briefcase, Package, MessageSquare, Settings, Ticket, Newspaper, Menu, X, Sun, Moon } from './Icons';
@@ -24,9 +25,11 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const navItems = [
     { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
     { label: 'Orders', path: '/admin/orders', icon: <Package size={18} /> },
+    { label: 'Quotes', path: '/admin/quotes', icon: <FileText size={18} /> },
     { label: 'Products', path: '/admin/products', icon: <Box size={18} /> },
     { label: 'Categories', path: '/admin/categories', icon: <Tag size={18} /> },
     { label: 'Brands', path: '/admin/brands', icon: <Briefcase size={18} /> },
+    { label: 'Inbox', path: '/admin/messages', icon: <MessageSquare size={18} /> },
     { label: 'Coupons', path: '/admin/coupons', icon: <Ticket size={18} /> },
     { label: 'Blog', path: '/admin/blog', icon: <Newspaper size={18} /> },
     { label: 'CMS', path: '/admin/cms', icon: <Settings size={18} /> },
