@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -28,14 +27,17 @@ import { CustomerDashboard } from './pages/CustomerDashboard';
 import { QuoteModal } from './components/QuoteModal';
 import { AuthModal } from './components/AuthModal';
 import { Analytics } from './components/Analytics';
-import { CartItem, Product, User, SiteSettings } from './types';
-import { createOrder, getSiteSettings, saveSiteSettings } from './services/db';
+import { CartItem, Product, User, SiteSettings, Category, Brand, PageContent } from './types';
+import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages } from './services/db';
 
-// Application Context
 interface AppContextType {
   cart: CartItem[];
   user: User | null;
   settings: SiteSettings;
+  categories: Category[];
+  brands: Brand[];
+  pages: PageContent[];
+  isDataLoaded: boolean;
   addToCart: (product: Product, qty: number) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
@@ -45,6 +47,7 @@ interface AppContextType {
   openAuthModal: () => void;
   openQuoteModal: (product?: {id: string, name: string, quantity: number}) => void;
   updateSettings: (settings: SiteSettings) => void;
+  refreshGlobalData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -55,7 +58,6 @@ export const useApp = () => {
   return context;
 };
 
-// Protected Admin Route
 const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { user } = useApp();
   if (!user || user.role !== 'admin') {
@@ -67,29 +69,44 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
 const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  // Initialize with empty defaults to prevent "undefined" crashes before API responds
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  
+  // App Data State
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [pages, setPages] = useState<PageContent[]>([]);
   const [settings, setSettings] = useState<SiteSettings>({
     id: 'settings',
-    supportPhone: 'Loading...',
-    supportEmail: 'loading@example.com',
-    address: 'Loading address...',
+    supportPhone: '...',
+    supportEmail: '...',
+    address: '...',
     whatsappNumber: ''
   });
+
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
+  const refreshGlobalData = async () => {
+    try {
+      const [s, c, b, p] = await Promise.all([
+        getSiteSettings(),
+        getCategories(),
+        getBrands(),
+        getPages()
+      ]);
+      if (s) setSettings(s);
+      if (c) setCategories(c);
+      if (b) setBrands(b);
+      if (p) setPages(p);
+      setIsDataLoaded(true);
+    } catch (err) {
+      console.error("Critical Data Load Error:", err);
+    }
+  };
+
   useEffect(() => {
-    // Fetch settings on mount
-    const loadSettings = async () => {
-        try {
-            const data = await getSiteSettings();
-            if (data) setSettings(data);
-        } catch (err) {
-            console.error("Failed to load settings:", err);
-        }
-    };
-    loadSettings();
+    refreshGlobalData();
   }, []);
 
   const addToCart = (product: Product, qty: number) => {
@@ -107,10 +124,7 @@ const App: React.FC = () => {
   };
 
   const clearCart = () => setCart([]);
-
-  const checkout = () => {
-    alert('Please use the checkout page.');
-  };
+  const checkout = () => alert('Use checkout page');
 
   const openQuoteModal = (product?: {id: string, name: string, quantity: number}) => {
     setQuoteProduct(product || null);
@@ -124,16 +138,17 @@ const App: React.FC = () => {
 
   return (
     <AppContext.Provider value={{ 
-      cart, user, settings, addToCart, removeFromCart, clearCart, checkout,
+      cart, user, settings, categories, brands, pages, isDataLoaded,
+      addToCart, removeFromCart, clearCart, checkout,
       login: setUser, logout: () => setUser(null),
       openAuthModal: () => setIsAuthOpen(true),
       openQuoteModal,
-      updateSettings
+      updateSettings,
+      refreshGlobalData
     }}>
       <Router>
         <Analytics />
         <Routes>
-          {/* Public Routes */}
           <Route path="/" element={<Layout><Home /></Layout>} />
           <Route path="/search" element={<Layout><ProductList /></Layout>} />
           <Route path="/category/:categorySlug" element={<Layout><ProductList /></Layout>} />
@@ -147,11 +162,7 @@ const App: React.FC = () => {
           <Route path="/blog/:slug" element={<Layout><BlogDetail /></Layout>} />
           <Route path="/page/:slug" element={<Layout><DynamicPage /></Layout>} />
           <Route path="/admin/login" element={<AdminLogin />} />
-
-          {/* Protected Customer Routes */}
           <Route path="/dashboard" element={<Layout><CustomerDashboard /></Layout>} />
-
-          {/* Protected Admin Routes */}
           <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
           <Route path="/admin/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
@@ -162,21 +173,11 @@ const App: React.FC = () => {
           <Route path="/admin/coupons" element={<AdminRoute><AdminCoupons /></AdminRoute>} />
           <Route path="/admin/blog" element={<AdminRoute><AdminBlog /></AdminRoute>} />
           <Route path="/admin/cms" element={<AdminRoute><AdminCMS /></AdminRoute>} />
-          
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
-
-      <QuoteModal 
-        isOpen={isQuoteOpen} 
-        onClose={() => setIsQuoteOpen(false)} 
-        initialProduct={quoteProduct} 
-      />
-      <AuthModal 
-        isOpen={isAuthOpen} 
-        onClose={() => setIsAuthOpen(false)} 
-        onLogin={(u) => setUser(u)} 
-      />
+      <QuoteModal isOpen={isQuoteOpen} onClose={() => setIsQuoteOpen(false)} initialProduct={quoteProduct} />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLogin={(u) => setUser(u)} />
     </AppContext.Provider>
   );
 };

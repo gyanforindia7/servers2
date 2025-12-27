@@ -12,7 +12,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 375000,
     specs: { 'CPU': '2x Intel Xeon Gold', 'RAM': '64GB DDR4', 'Storage': 'No HDD (Bays Only)', 'Form Factor': '2U Rack' },
     stock: 10,
-    imageUrl: 'https://picsum.photos/seed/server1/800/600',
+    imageUrl: 'https://picsum.photos/seed/server1/400/300',
     condition: 'New',
     isActive: true,
     isFeatured: true
@@ -28,7 +28,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 325000,
     specs: { 'CPU': 'Intel Xeon Silver', 'RAM': '32GB DDR4', 'Form Factor': '2U Rack', 'Controller': 'Smart Array P408i-a' },
     stock: 15,
-    imageUrl: 'https://picsum.photos/seed/server2/800/600',
+    imageUrl: 'https://picsum.photos/seed/server2/400/300',
     condition: 'Refurbished',
     isActive: true,
     isFeatured: true
@@ -44,7 +44,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 158000,
     specs: { 'CPU': 'i7-1260P', 'RAM': '16GB', 'SSD': '512GB NVMe', 'Screen': '14" IPS' },
     stock: 50,
-    imageUrl: 'https://picsum.photos/seed/laptop1/800/600',
+    imageUrl: 'https://picsum.photos/seed/laptop1/400/300',
     condition: 'New',
     isActive: true,
     isFeatured: true
@@ -60,7 +60,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 249000,
     specs: { 'CPU': 'M2 Pro', 'RAM': '16GB', 'SSD': '512GB', 'Screen': '16" Liquid Retina XDR' },
     stock: 25,
-    imageUrl: 'https://picsum.photos/seed/laptop2/800/600',
+    imageUrl: 'https://picsum.photos/seed/laptop2/400/300',
     condition: 'New',
     isActive: true,
     isFeatured: false
@@ -76,7 +76,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 285000,
     specs: { 'CPU': 'Xeon Gold 6200', 'GPU': 'NVIDIA RTX A4000', 'RAM': '128GB', 'OS': 'Windows 11 Pro' },
     stock: 5,
-    imageUrl: 'https://picsum.photos/seed/workstation1/800/600',
+    imageUrl: 'https://picsum.photos/seed/workstation1/400/300',
     condition: 'Refurbished',
     isActive: true,
     isFeatured: true
@@ -92,7 +92,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 850000,
     specs: { 'Type': 'NVMe Flash', 'Capacity': '38TB Raw', 'Controller': 'Dual Active', 'Connectivity': 'Fibre Channel' },
     stock: 2,
-    imageUrl: 'https://picsum.photos/seed/storage1/800/600',
+    imageUrl: 'https://picsum.photos/seed/storage1/400/300',
     condition: 'Refurbished',
     isActive: true,
     isFeatured: false
@@ -108,7 +108,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 18500,
     specs: { 'Type': 'DDR4-2933', 'Capacity': '32GB', 'Rank': '2Rx4', 'Voltage': '1.2V' },
     stock: 100,
-    imageUrl: 'https://picsum.photos/seed/ram/800/600',
+    imageUrl: 'https://picsum.photos/seed/ram/400/300',
     condition: 'New',
     isActive: true,
     isFeatured: false
@@ -124,7 +124,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     price: 295000,
     specs: { 'CPU': '2x Xeon Silver 4210', 'RAM': '32GB', 'Storage': '2x 480GB SSD', 'Form Factor': '1U Rack' },
     stock: 8,
-    imageUrl: 'https://picsum.photos/seed/server3/800/600',
+    imageUrl: 'https://picsum.photos/seed/server3/400/300',
     condition: 'Refurbished',
     isActive: true,
     isFeatured: true
