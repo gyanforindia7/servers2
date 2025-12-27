@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { getProducts, getQuotes, getOrders, formatCurrency } from '../services/db';
 import { SEO } from '../components/SEO';
@@ -88,7 +89,7 @@ export const AdminDashboard: React.FC = () => {
                 You are currently looking at the <strong>Service List</strong>. You must click the <strong>blue name</strong> of your service (e.g., <span className="underline decoration-wavy">servers2-app</span>) in the table.
               </p>
               <div className="bg-blue-800/50 rounded-lg p-3 text-[10px] font-mono border border-white/5">
-                Cloud Run &gt; <span className="text-white">servers2-app</span>
+                Cloud Run > <span className="text-white">servers2-app</span>
               </div>
             </div>
 
@@ -123,18 +124,18 @@ export const AdminDashboard: React.FC = () => {
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-          <div className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase mb-2">Total Products</div>
+        <Link to="/admin/products" className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all group">
+          <div className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase mb-2 group-hover:text-blue-500 transition-colors">Total Products</div>
           <div className="text-4xl font-bold text-slate-900 dark:text-white">{productsCount}</div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-          <div className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase mb-2">Pending Quotes</div>
+        </Link>
+        <Link to="/admin/quotes" className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all group">
+          <div className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase mb-2 group-hover:text-blue-500 transition-colors">Pending Quotes</div>
           <div className="text-4xl font-bold text-blue-600 dark:text-blue-400">{quotes.filter(q => q.status === 'Pending').length}</div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-          <div className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase mb-2">Revenue (YTD)</div>
+        </Link>
+        <Link to="/admin/orders" className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-blue-500 transition-all group">
+          <div className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase mb-2 group-hover:text-blue-500 transition-colors">Revenue (YTD)</div>
           <div className="text-4xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totalRevenue)}</div>
-        </div>
+        </Link>
       </div>
 
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
