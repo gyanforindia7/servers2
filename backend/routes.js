@@ -181,10 +181,15 @@ router.get('/quotes', async (req, res) => {
 
 router.post('/quotes', async (req, res) => {
     try {
+        console.log('Incoming Quote Request:', req.body.customerEmail);
         const quote = new Quote({ ...req.body, id: `QT-${Date.now()}`, date: new Date() });
         await quote.save();
+        console.log('Quote Saved Successfully:', quote.id);
         res.json(quote);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('Quote Save Error:', err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 router.patch('/quotes/:id/status', async (req, res) => {
@@ -211,6 +216,7 @@ router.get('/contact', async (req, res) => {
 
 router.post('/contact', async (req, res) => {
     try {
+        console.log('Incoming Contact Message from:', req.body.email);
         const msg = new Contact({ ...req.body, id: `MSG-${Date.now()}`, date: new Date() });
         await msg.save();
         res.json(msg);
