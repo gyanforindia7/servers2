@@ -1,9 +1,10 @@
+
 import { Product, Order, User, SiteSettings, Category, Brand, PageContent, ContactMessage, QuoteRequest, Coupon, BlogPost, INITIAL_CATEGORY_NAMES } from '../types';
 import { INITIAL_PRODUCTS } from '../constants';
 
 /**
  * RESILIENT DATABASE SERVICE
- * Redundancy Path: Backend API -> LocalStorage Cache -> Initial Constants
+ * Redundancy: Backend API -> LocalStorage Cache -> Initial Constants
  */
 
 const API_URL = '/api';
@@ -11,7 +12,7 @@ const API_URL = '/api';
 const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) => {
     const headers: any = { 'Content-Type': 'application/json' };
     
-    // 30s timeout for cloud environments
+    // Increased to 30s for cloud environment cold starts
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
     
@@ -35,7 +36,7 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
     }
 };
 
-// --- Local Storage Sync ---
+// --- Local Storage Sync Helpers ---
 const CACHE_KEYS = {
     PRODUCTS: 's2_cache_products',
     CATEGORIES: 's2_cache_categories',
@@ -46,8 +47,22 @@ const CACHE_KEYS = {
     SETTINGS: 's2_cache_settings'
 };
 
-const getCache = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
-const setCache = (key: string, data: any) => localStorage.setItem(key, JSON.stringify(data));
+const getCache = (key: string) => {
+    try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        return [];
+    }
+};
+
+const setCache = (key: string, data: any) => {
+    try {
+        localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+        console.error('Cache save error', e);
+    }
+};
 
 export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-IN', {
@@ -62,22 +77,27 @@ export const getProducts = async (): Promise<Product[]> => {
     try {
         const apiData = await apiRequest('/products/all');
         const cache = getCache(CACHE_KEYS.PRODUCTS);
-        // Merge: API data takes priority, but keep local-only items
-        const combined = [...apiData, ...cache.filter((c: any) => !apiData.find((a: any) => a.id === c.id))];
-        const final = combined.length > 0 ? combined : INITIAL_PRODUCTS;
-        setCache(CACHE_KEYS.PRODUCTS, final); // Keep cache warm
-        return final;
-    } catch {
+        // Merge: Cloud data wins, but keep local items if cloud is slow/empty
+        const combined = Array.isArray(apiData) && apiData.length > 0 
+            ? apiData 
+            : (cache.length > 0 ? cache : INITIAL_PRODUCTS);
+        
+        setCache(CACHE_KEYS.PRODUCTS, combined);
+        return combined;
+    } catch (err) {
+        console.warn("Backend products unavailable, using cache/constants");
         const cache = getCache(CACHE_KEYS.PRODUCTS);
         return cache.length > 0 ? cache : INITIAL_PRODUCTS;
     }
 };
 
 export const saveProduct = async (product: Product): Promise<void> => {
+    // 1. Instant Cache Save
     const cache = getCache(CACHE_KEYS.PRODUCTS);
-    const updatedCache = [...cache.filter((p: any) => p.id !== product.id), product];
-    setCache(CACHE_KEYS.PRODUCTS, updatedCache);
+    const updated = [...cache.filter((p: any) => p.id !== product.id), product];
+    setCache(CACHE_KEYS.PRODUCTS, updated);
 
+    // 2. Background Sync
     try {
         if (product.id && !product.id.startsWith('p-new')) {
             await apiRequest(`/products/${product.id}`, 'PUT', product);
@@ -85,7 +105,7 @@ export const saveProduct = async (product: Product): Promise<void> => {
             await apiRequest('/products', 'POST', { ...product, id: `p-${Date.now()}` });
         }
     } catch (err) {
-        console.warn("Backend unsynced, product saved in browser cache.", err);
+        console.error("Product sync failed, saved locally only.", err);
     }
 };
 
@@ -118,8 +138,7 @@ export const getCategories = async (): Promise<Category[]> => {
     try {
         const apiData = await apiRequest('/categories');
         const cache = getCache(CACHE_KEYS.CATEGORIES);
-        const combined = [...apiData, ...cache.filter((c: any) => !apiData.find((a: any) => a.id === c.id))];
-        const final = combined.length > 0 ? combined : fallback;
+        const final = Array.isArray(apiData) && apiData.length > 0 ? apiData : (cache.length > 0 ? cache : fallback);
         setCache(CACHE_KEYS.CATEGORIES, final);
         return final;
     } catch {
@@ -152,14 +171,21 @@ export const getCategoryHierarchy = async (): Promise<Category[]> => {
 
 // --- Quotes & Inquiries ---
 export const submitQuote = async (quote: any): Promise<void> => {
-    const fullQuote = { ...quote, id: `QT-${Date.now()}`, date: new Date().toISOString(), status: 'Pending' };
+    const fullQuote = { 
+        ...quote, 
+        id: `QT-${Date.now()}`, 
+        date: new Date().toISOString(), 
+        status: 'Pending' 
+    };
+    
+    // Save locally immediately
     const cache = getCache(CACHE_KEYS.QUOTES);
-    setCache(CACHE_KEYS.QUOTES, [...cache, fullQuote]);
+    setCache(CACHE_KEYS.QUOTES, [fullQuote, ...cache]);
     
     try {
         await apiRequest('/quotes', 'POST', quote);
     } catch (err) {
-        console.error("Quote submission failed on backend, but saved locally.", err);
+        console.error("Quote submission failed on server, but it is saved in your browser storage.", err);
         throw err;
     }
 };
@@ -168,7 +194,7 @@ export const getQuotes = async (): Promise<QuoteRequest[]> => {
     try {
         const apiData = await apiRequest('/quotes');
         const cache = getCache(CACHE_KEYS.QUOTES);
-        const final = [...apiData, ...cache.filter((c: any) => !apiData.find((a: any) => a.id === c.id))];
+        const final = [...(Array.isArray(apiData) ? apiData : []), ...cache.filter((c: any) => !apiData?.find((a: any) => a.id === c.id))];
         return final.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     } catch {
         return getCache(CACHE_KEYS.QUOTES);
@@ -191,8 +217,11 @@ export const deleteQuote = async (id: string): Promise<void> => {
 export const getSiteSettings = async (): Promise<SiteSettings> => {
     try {
         const settings = await apiRequest('/settings');
-        localStorage.setItem(CACHE_KEYS.SETTINGS, JSON.stringify(settings));
-        return settings;
+        if (settings && settings.id) {
+            localStorage.setItem(CACHE_KEYS.SETTINGS, JSON.stringify(settings));
+            return settings;
+        }
+        throw new Error("Invalid settings object");
     } catch {
         const cached = localStorage.getItem(CACHE_KEYS.SETTINGS);
         if (cached) return JSON.parse(cached);
@@ -211,30 +240,56 @@ export const saveSiteSettings = async (settings: SiteSettings): Promise<void> =>
     try { await apiRequest('/settings', 'POST', settings); } catch {}
 };
 
-// --- Generic Helpers ---
+// --- Pages ---
 export const getPages = async (): Promise<PageContent[]> => {
-    try { return await apiRequest('/pages'); } catch { return getCache(CACHE_KEYS.PAGES); }
+    try { 
+        const apiData = await apiRequest('/pages'); 
+        if (Array.isArray(apiData)) {
+            setCache(CACHE_KEYS.PAGES, apiData);
+            return apiData;
+        }
+        return getCache(CACHE_KEYS.PAGES);
+    } catch { 
+        return getCache(CACHE_KEYS.PAGES); 
+    }
 };
+
 export const savePage = async (page: PageContent): Promise<void> => {
-    setCache(CACHE_KEYS.PAGES, [...getCache(CACHE_KEYS.PAGES).filter((p:any)=>p.id!==page.id), page]);
+    const cache = getCache(CACHE_KEYS.PAGES);
+    setCache(CACHE_KEYS.PAGES, [...cache.filter((p:any)=>p.id!==page.id), page]);
     try { await apiRequest('/pages', 'POST', page); } catch {}
 };
+
 export const getPageBySlug = async (slug: string): Promise<PageContent | undefined> => {
     const pages = await getPages();
     return pages.find(p => p.slug === slug);
 };
+
 export const deletePage = async (id: string): Promise<void> => {
     setCache(CACHE_KEYS.PAGES, getCache(CACHE_KEYS.PAGES).filter((p:any)=>p.id!==id));
     try { await apiRequest(`/pages/${id}`, 'DELETE'); } catch {}
 };
 
+// --- Brands ---
 export const getBrands = async (): Promise<Brand[]> => {
-    try { return await apiRequest('/brands'); } catch { return getCache(CACHE_KEYS.BRANDS); }
+    try { 
+        const apiData = await apiRequest('/brands'); 
+        if (Array.isArray(apiData)) {
+            setCache(CACHE_KEYS.BRANDS, apiData);
+            return apiData;
+        }
+        return getCache(CACHE_KEYS.BRANDS);
+    } catch { 
+        return getCache(CACHE_KEYS.BRANDS); 
+    }
 };
+
 export const saveBrand = async (brand: Brand): Promise<void> => {
-    setCache(CACHE_KEYS.BRANDS, [...getCache(CACHE_KEYS.BRANDS).filter((b:any)=>b.id!==brand.id), brand]);
+    const cache = getCache(CACHE_KEYS.BRANDS);
+    setCache(CACHE_KEYS.BRANDS, [...cache.filter((b:any)=>b.id!==brand.id), brand]);
     try { await apiRequest('/brands', 'POST', brand); } catch {}
 };
+
 export const deleteBrand = async (id: string): Promise<void> => {
     setCache(CACHE_KEYS.BRANDS, getCache(CACHE_KEYS.BRANDS).filter((b:any)=>b.id!==id));
     try { await apiRequest(`/brands/${id}`, 'DELETE'); } catch {}
@@ -248,13 +303,16 @@ export const getOrders = async (): Promise<Order[]> => {
         return Array.isArray(orders) ? orders : [];
     } catch { return []; }
 };
+
 export const updateOrderStatus = async (id: string, status: string): Promise<void> => apiRequest(`/orders/${id}/status`, 'PATCH', { status });
 export const deleteOrder = async (id: string): Promise<void> => apiRequest(`/orders/${id}`, 'DELETE');
 export const cancelOrder = async (id: string, reason: string): Promise<void> => apiRequest(`/orders/${id}/cancel`, 'PATCH', { reason });
+
 export const getUserOrders = async (userId: string): Promise<Order[]> => {
     const orders = await getOrders();
     return orders.filter(o => o.userId === userId);
 };
+
 export const getOrderById = async (id: string): Promise<Order | undefined> => {
     const orders = await getOrders();
     return orders.find(o => o.id === id);
@@ -264,9 +322,11 @@ export const getOrderById = async (id: string): Promise<Order | undefined> => {
 export const submitContactMessage = async (msg: any): Promise<void> => {
     try { await apiRequest('/contact', 'POST', msg); } catch {}
 };
+
 export const getContactMessages = async (): Promise<ContactMessage[]> => {
     try { return await apiRequest('/contact'); } catch { return []; }
 };
+
 export const markMessageRead = async (id: string): Promise<void> => { try { await apiRequest(`/contact/${id}/read`, 'PATCH'); } catch {} };
 export const deleteMessage = async (id: string): Promise<void> => { try { await apiRequest(`/contact/${id}`, 'DELETE'); } catch {} };
 
@@ -277,6 +337,7 @@ export const authenticateUser = async (email: string, password: string): Promise
     }
     return undefined;
 };
+
 export const getUsers = async (): Promise<User[]> => { try { return await apiRequest('/users'); } catch { return []; } };
 export const saveUser = async (user: User): Promise<void> => { try { await apiRequest('/users', 'POST', user); } catch {} };
 
