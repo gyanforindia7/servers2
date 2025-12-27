@@ -1,4 +1,3 @@
-
 import { 
   ShoppingCart, 
   Menu, 
@@ -58,7 +57,8 @@ import {
   ShieldCheck,
   ExternalLink,
   Terminal,
-  HelpCircle
+  HelpCircle,
+  Sparkles
 } from 'lucide-react';
 
 export { 
@@ -120,5 +120,6 @@ export {
   ShieldCheck,
   ExternalLink,
   Terminal,
-  HelpCircle
+  HelpCircle,
+  Sparkles
 };
