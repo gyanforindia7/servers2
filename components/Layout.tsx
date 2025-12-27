@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../App';
@@ -43,13 +42,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   
   useEffect(() => {
     const loadNavData = async () => {
-      const hierarchy = await getCategoryHierarchy();
+      // Parallelize fetching for speed
+      const [hierarchy, allPages, allCategories] = await Promise.all([
+          getCategoryHierarchy(),
+          getPages(),
+          getCategories()
+      ]);
+
       setCategoryTree(hierarchy.filter(c => c.showInMenu !== false));
-      
-      const allPages = await getPages();
       setNavPages(allPages.filter(p => p.showInMenu !== false));
-      
-      const allCategories = await getCategories();
       setFooterCategories(allCategories.filter(c => !c.parentId && c.showInFooter !== false));
       setFooterPages(allPages.filter(p => p.showInFooter !== false));
     };
@@ -72,15 +73,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
     if (query.length > 0) {
       const lowerQ = query.toLowerCase();
-      const allCats = await getCategories();
+      // Use cached/mem data for search (much faster)
+      const [allCats, allBrands, allProducts] = await Promise.all([
+          getCategories(),
+          getBrands(),
+          getProducts()
+      ]);
+
       const matchedCats = allCats.filter(c => c.name.toLowerCase().includes(lowerQ)).slice(0, 3);
       setCategoryResults(matchedCats);
 
-      const allBrands = await getBrands();
       const matchedBrands = allBrands.filter(b => b.name.toLowerCase().includes(lowerQ)).slice(0, 3);
       setBrandResults(matchedBrands);
 
-      const allProducts = await getProducts();
       const filteredProducts = allProducts.filter(p => p.isActive !== false).filter(p => 
         p.name.toLowerCase().includes(lowerQ) || 
         p.category.toLowerCase().includes(lowerQ) ||
@@ -128,7 +133,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <span className="flex items-center gap-2 shrink-0"><Phone size={12} /> {settings.supportPhone}</span>
             <span className="flex items-center gap-2 shrink-0"><Mail size={12} /> {settings.supportEmail}</span>
           </div>
-          {/* Admin link removed from public top bar */}
           <div className="hidden md:block">
             <span className="text-[10px] uppercase tracking-widest text-slate-500">Premium Enterprise Solutions</span>
           </div>
@@ -258,6 +262,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                 title="Toggle Theme"
               >
+                {/* Fixed typo: changed size(20) to size={20} to fix TypeScript error */}
                 {isDark ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
@@ -318,85 +323,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       </header>
 
       <Breadcrumbs />
-
-      {/* Mobile Nav Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 xl:hidden">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
-          <div className="relative w-[85%] max-w-[320px] bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
-            <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
-               <span className="font-bold dark:text-white uppercase tracking-widest text-sm">Main Menu</span>
-               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-500 dark:text-slate-400">
-                 <X size={24} />
-               </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-              <form onSubmit={handleSearchSubmit} className="mb-6 relative">
-                 <input
-                  type="text"
-                  placeholder="Search catalog..."
-                  className="w-full pl-4 pr-10 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 border-none outline-none dark:text-white"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                />
-                <button type="submit" className="absolute right-3 top-3.5 text-slate-400">
-                    <Search size={18}/>
-                </button>
-              </form>
-              <nav className="flex flex-col gap-1">
-                <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="text-base font-bold text-slate-900 dark:text-white py-3 border-b dark:border-slate-800 uppercase tracking-wide">Home</Link>
-                
-                {categoryTree.map((cat) => (
-                  <div key={cat.id} className="border-b dark:border-slate-800 last:border-0">
-                      <div className="flex items-center justify-between py-3">
-                        <Link 
-                            to={`/category/${cat.slug}`}
-                            className="text-base font-bold text-slate-900 dark:text-white flex-1 uppercase tracking-wide"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                        >
-                            {cat.name}
-                        </Link>
-                        {cat.children && cat.children.length > 0 && (
-                            <button onClick={() => toggleMobileCat(cat.id)} className="p-2 text-slate-500 dark:text-slate-400">
-                                {expandedMobileCats.includes(cat.id) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                            </button>
-                        )}
-                      </div>
-                      {cat.children && cat.children.length > 0 && expandedMobileCats.includes(cat.id) && (
-                          <div className="pl-4 pb-2 bg-slate-50 dark:bg-slate-800 rounded-lg mb-2">
-                              {cat.children.map(child => (
-                                  <Link 
-                                    key={child.id}
-                                    to={`/category/${child.slug}`}
-                                    className="block py-2 text-sm text-slate-600 dark:text-slate-400"
-                                    onClick={() => setIsMobileMenuOpen(false)}
-                                  >
-                                      {child.name}
-                                  </Link>
-                              ))}
-                          </div>
-                      )}
-                  </div>
-                ))}
-                
-                {navPages.map(page => (
-                     <Link key={page.id} to={`/page/${page.slug}`} onClick={() => setIsMobileMenuOpen(false)} className="text-base font-bold text-slate-900 dark:text-white py-3 border-b dark:border-slate-800 uppercase tracking-wide">
-                        {page.title}
-                     </Link>
-                ))}
-              </nav>
-            </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t dark:border-slate-700">
-              <button 
-                onClick={() => { setIsMobileMenuOpen(false); openQuoteModal(); }}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
-              >
-                <FileText size={18} /> Get Custom Quote
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <main className="flex-1">
         {children}
