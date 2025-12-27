@@ -4,27 +4,38 @@ import { INITIAL_PRODUCTS } from '../constants';
 
 /**
  * PRODUCTION DATABASE SERVICE
- * This file points to your Node.js backend with resilient fallbacks.
+ * Optimized with timeouts for better performance and resilient fallbacks.
  */
 
 const API_URL = '/api';
 
 const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) => {
     const headers: any = { 'Content-Type': 'application/json' };
-    const config: RequestInit = { method, headers };
+    
+    // Use AbortController for a 5-second timeout to prevent "slow loading" hangs
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const config: RequestInit = { 
+        method, 
+        headers,
+        signal: controller.signal
+    };
+    
     if (body) config.body = JSON.stringify(body);
     
-    // Ensure endpoint starts with a slash for safe joining
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     
     try {
         const response = await fetch(`${API_URL}${path}`, config);
+        clearTimeout(timeoutId);
         if (!response.ok) {
             throw new Error(`API Error: ${response.status}`);
         }
         return response.json();
     } catch (err) {
-        console.warn(`API Request failed for ${path}, using local fallback if available.`);
+        clearTimeout(timeoutId);
+        console.warn(`API Request failed for ${path}, using local fallback.`, err);
         throw err;
     }
 };
@@ -41,7 +52,7 @@ export const formatCurrency = (amount: number) => {
 export const getProducts = async (): Promise<Product[]> => {
     try {
         const products = await apiRequest('/products');
-        return (products && products.length > 0) ? products : INITIAL_PRODUCTS;
+        return (products && Array.isArray(products) && products.length > 0) ? products : INITIAL_PRODUCTS;
     } catch {
         return INITIAL_PRODUCTS;
     }
@@ -101,7 +112,7 @@ export const deleteProduct = async (id: string): Promise<void> => apiRequest(`/p
 export const getCategories = async (): Promise<Category[]> => {
     try {
         const categories = await apiRequest('/categories');
-        if (categories && categories.length > 0) return categories;
+        if (categories && Array.isArray(categories) && categories.length > 0) return categories;
         
         return INITIAL_CATEGORY_NAMES.map((name, i) => ({
             id: `cat-${i}`,
@@ -163,7 +174,8 @@ export const saveSiteSettings = async (settings: SiteSettings): Promise<void> =>
 export const createOrder = async (order: any): Promise<Order> => apiRequest('/orders', 'POST', order);
 export const getOrders = async (): Promise<Order[]> => {
     try {
-        return await apiRequest('/orders');
+        const orders = await apiRequest('/orders');
+        return Array.isArray(orders) ? orders : [];
     } catch {
         return [];
     }
@@ -204,7 +216,8 @@ export const authenticateUser = async (email: string, password: string): Promise
 };
 export const getUsers = async (): Promise<User[]> => {
     try {
-        return await apiRequest('/users');
+        const users = await apiRequest('/users');
+        return Array.isArray(users) ? users : [];
     } catch {
         return [];
     }
@@ -215,7 +228,8 @@ export const saveUser = async (user: User): Promise<void> => apiRequest('/users'
 export const submitQuote = async (quote: any): Promise<void> => apiRequest('/quotes', 'POST', quote);
 export const getQuotes = async (): Promise<QuoteRequest[]> => {
     try {
-        return await apiRequest('/quotes');
+        const quotes = await apiRequest('/quotes');
+        return Array.isArray(quotes) ? quotes : [];
     } catch {
         return [];
     }
@@ -226,7 +240,8 @@ export const deleteQuote = async (id: string): Promise<void> => apiRequest(`/quo
 export const submitContactMessage = async (msg: any): Promise<void> => apiRequest('/contact', 'POST', msg);
 export const getContactMessages = async (): Promise<ContactMessage[]> => {
     try {
-        return await apiRequest('/contact');
+        const msgs = await apiRequest('/contact');
+        return Array.isArray(msgs) ? msgs : [];
     } catch {
         return [];
     }
@@ -236,7 +251,8 @@ export const deleteMessage = async (id: string): Promise<void> => apiRequest(`/c
 
 export const getBrands = async (): Promise<Brand[]> => {
     try {
-        return await apiRequest('/brands');
+        const brands = await apiRequest('/brands');
+        return Array.isArray(brands) ? brands : [];
     } catch {
         return [];
     }
@@ -246,7 +262,8 @@ export const deleteBrand = async (id: string): Promise<void> => apiRequest(`/bra
 
 export const getPages = async (): Promise<PageContent[]> => {
     try {
-        return await apiRequest('/pages');
+        const pages = await apiRequest('/pages');
+        return Array.isArray(pages) ? pages : [];
     } catch {
         return [];
     }
@@ -264,7 +281,8 @@ export const deletePage = async (id: string): Promise<void> => apiRequest(`/page
 
 export const getBlogPosts = async (): Promise<BlogPost[]> => {
     try {
-        return await apiRequest('/blog');
+        const posts = await apiRequest('/blog');
+        return Array.isArray(posts) ? posts : [];
     } catch {
         return [];
     }
@@ -282,7 +300,8 @@ export const deleteBlogPost = async (id: string): Promise<void> => apiRequest(`/
 
 export const getCoupons = async (): Promise<Coupon[]> => {
     try {
-        return await apiRequest('/coupons');
+        const coupons = await apiRequest('/coupons');
+        return Array.isArray(coupons) ? coupons : [];
     } catch {
         return [];
     }
@@ -292,7 +311,7 @@ export const deleteCoupon = async (id: string): Promise<void> => apiRequest(`/co
 export const validateCoupon = async (code: string, total: number): Promise<Coupon | null> => {
     try {
         const coupons = await getCoupons();
-        return coupons.find(c => c.code === code && c.isActive) || null;
+        return coupons.find(c => c.code === code && c.isActive && (c.minOrderValue || 0) <= total) || null;
     } catch {
         return null;
     }
