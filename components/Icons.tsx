@@ -1,3 +1,4 @@
+
 import { 
   ShoppingCart, 
   Menu, 
@@ -51,13 +52,13 @@ import {
   Calendar,
   AlertCircle,
   Smartphone,
-  // Fix: Adding missing Sun and Moon icons
   Sun,
   Moon,
-  // Adding missing Rocket, ShieldCheck, and ExternalLink icons
   Rocket,
   ShieldCheck,
-  ExternalLink
+  ExternalLink,
+  Terminal,
+  HelpCircle
 } from 'lucide-react';
 
 export { 
@@ -113,11 +114,11 @@ export {
   Calendar,
   AlertCircle,
   Smartphone,
-  // Fix: Exporting Sun and Moon icons
   Sun,
   Moon,
-  // Exporting missing Rocket, ShieldCheck, and ExternalLink icons
   Rocket,
   ShieldCheck,
-  ExternalLink
+  ExternalLink,
+  Terminal,
+  HelpCircle
 };

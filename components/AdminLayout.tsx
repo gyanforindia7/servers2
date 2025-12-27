@@ -52,7 +52,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       >
         <div className="p-6 border-b border-slate-800 flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-black tracking-tighter">ADMIN <span className="text-blue-500">P7</span></h1>
+            <h1 className="text-xl font-black tracking-tighter">ADMIN <span className="text-blue-50">P7</span></h1>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white">
             <X size={24} />
