@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { getCoupons, saveCoupon, deleteCoupon, formatCurrency } from '../services/db';
 import { Coupon } from '../types';
-import { Ticket, Plus, Trash2, Edit, Save, X, ArrowRight } from '../components/Icons';
+import { Ticket, Plus, Trash2, Edit, Save, ArrowRight } from '../components/Icons';
 
 export const AdminCoupons: React.FC = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [view, setView] = useState<'list' | 'form'>('list');
+  const [isLoading, setIsLoading] = useState(true);
   
   const initialForm: Coupon = {
     id: '',
@@ -19,7 +20,16 @@ export const AdminCoupons: React.FC = () => {
   };
   const [formData, setFormData] = useState<Coupon>(initialForm);
 
-  const refresh = () => setCoupons(getCoupons());
+  const refresh = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getCoupons();
+      setCoupons(data || []);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => { refresh(); }, []);
 
   const handleEdit = (coupon: Coupon) => {
@@ -32,18 +42,17 @@ export const AdminCoupons: React.FC = () => {
     setView('form');
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveCoupon(formData);
+    await saveCoupon(formData);
     setView('list');
     refresh();
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    // eslint-disable-next-line no-restricted-globals
     if (window.confirm('Delete this coupon?')) {
-      deleteCoupon(id);
+      await deleteCoupon(id);
       refresh();
     }
   };
@@ -53,70 +62,78 @@ export const AdminCoupons: React.FC = () => {
       {view === 'list' ? (
         <>
           <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-slate-900">Coupon Management</h2>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Coupon Management</h2>
             <button onClick={handleCreate} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-blue-700">
               <Plus size={20} /> Create Coupon
             </button>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[600px]">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                    <th className="p-4 font-semibold text-slate-600">Code</th>
-                    <th className="p-4 font-semibold text-slate-600">Discount</th>
-                    <th className="p-4 font-semibold text-slate-600">Min Order</th>
-                    <th className="p-4 font-semibold text-slate-600">Status</th>
-                    <th className="p-4 font-semibold text-slate-600 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                    {coupons.map(c => (
-                    <tr key={c.id} className="hover:bg-slate-50">
-                        <td className="p-4 font-mono font-bold text-blue-600">{c.code}</td>
-                        <td className="p-4">
-                        {c.type === 'percentage' ? `${c.value}% Off` : `${formatCurrency(c.value)} Off`}
-                        </td>
-                        <td className="p-4 text-slate-500">
-                        {c.minOrderValue ? formatCurrency(c.minOrderValue) : '-'}
-                        </td>
-                        <td className="p-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {c.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                        </td>
-                        <td className="p-4 text-right">
-                        <div className="flex justify-end gap-2">
-                            <button type="button" onClick={() => handleEdit(c)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16} /></button>
-                            <button type="button" onClick={(e) => handleDelete(c.id, e)} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
-                        </div>
-                        </td>
-                    </tr>
-                    ))}
-                </tbody>
-                </table>
-            </div>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+            {isLoading ? (
+               <div className="p-12 text-center text-slate-500">Loading coupons...</div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left min-w-[600px]">
+                        <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Code</th>
+                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Discount</th>
+                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Min Order</th>
+                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400">Status</th>
+                            <th className="p-4 font-semibold text-slate-600 dark:text-slate-400 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {coupons.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="p-12 text-center text-slate-500">No coupons available. Create one to get started!</td>
+                                </tr>
+                            ) : coupons.map(c => (
+                                <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                    <td className="p-4 font-mono font-bold text-blue-600 dark:text-blue-400">{c.code}</td>
+                                    <td className="p-4 dark:text-slate-300">
+                                    {c.type === 'percentage' ? `${c.value}% Off` : `${formatCurrency(c.value)} Off`}
+                                    </td>
+                                    <td className="p-4 text-slate-500 dark:text-slate-400">
+                                    {c.minOrderValue ? formatCurrency(c.minOrderValue) : '-'}
+                                    </td>
+                                    <td className="p-4">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${c.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                        {c.isActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                    </td>
+                                    <td className="p-4 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <button type="button" onClick={() => handleEdit(c)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded transition-colors"><Edit size={16} /></button>
+                                        <button type="button" onClick={(e) => handleDelete(c.id, e)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-slate-700 rounded transition-colors"><Trash2 size={16} /></button>
+                                    </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
           </div>
         </>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+          <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
             <div className="flex items-center gap-4">
                <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800"><ArrowRight className="rotate-180" size={24} /></button>
-               <h3 className="text-xl font-bold">{formData.id ? 'Edit Coupon' : 'New Coupon'}</h3>
+               <h3 className="text-xl font-bold dark:text-white">{formData.id && coupons.find(c => c.id === formData.id) ? 'Edit Coupon' : 'New Coupon'}</h3>
             </div>
           </div>
           <div className="p-8 max-w-2xl">
             <form onSubmit={handleSave} className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Coupon Code</label>
-                  <input required type="text" className="w-full p-3 border rounded-lg uppercase font-mono" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} placeholder="SUMMER2024" />
+                  <label className="block text-sm font-medium mb-1 dark:text-slate-300">Coupon Code</label>
+                  <input required type="text" className="w-full p-3 border rounded-lg uppercase font-mono dark:bg-slate-950 dark:border-slate-700" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} placeholder="SUMMER2024" />
                 </div>
                 <div>
-                   <label className="block text-sm font-medium mb-1">Status</label>
-                   <select className="w-full p-3 border rounded-lg bg-white" value={formData.isActive ? 'active' : 'inactive'} onChange={e => setFormData({...formData, isActive: e.target.value === 'active'})}>
+                   <label className="block text-sm font-medium mb-1 dark:text-slate-300">Status</label>
+                   <select className="w-full p-3 border rounded-lg bg-white dark:bg-slate-950 dark:border-slate-700" value={formData.isActive ? 'active' : 'inactive'} onChange={e => setFormData({...formData, isActive: e.target.value === 'active'})}>
                      <option value="active">Active</option>
                      <option value="inactive">Inactive</option>
                    </select>
@@ -125,28 +142,28 @@ export const AdminCoupons: React.FC = () => {
               
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Discount Type</label>
-                  <select className="w-full p-3 border rounded-lg bg-white" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})}>
+                  <label className="block text-sm font-medium mb-1 dark:text-slate-300">Discount Type</label>
+                  <select className="w-full p-3 border rounded-lg bg-white dark:bg-slate-950 dark:border-slate-700" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})}>
                     <option value="percentage">Percentage (%)</option>
                     <option value="fixed">Fixed Amount (INR)</option>
                   </select>
                 </div>
                 <div>
-                   <label className="block text-sm font-medium mb-1">Value</label>
-                   <input required type="number" className="w-full p-3 border rounded-lg" value={formData.value} onChange={e => setFormData({...formData, value: Number(e.target.value)})} />
+                   <label className="block text-sm font-medium mb-1 dark:text-slate-300">Value</label>
+                   <input required type="number" className="w-full p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700" value={formData.value} onChange={e => setFormData({...formData, value: Number(e.target.value)})} />
                 </div>
               </div>
 
               <div>
-                 <label className="block text-sm font-medium mb-1">Minimum Order Value (Optional)</label>
-                 <input type="number" className="w-full p-3 border rounded-lg" value={formData.minOrderValue} onChange={e => setFormData({...formData, minOrderValue: Number(e.target.value)})} placeholder="0" />
+                 <label className="block text-sm font-medium mb-1 dark:text-slate-300">Minimum Order Value (Optional)</label>
+                 <input type="number" className="w-full p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700" value={formData.minOrderValue} onChange={e => setFormData({...formData, minOrderValue: Number(e.target.value)})} placeholder="0" />
               </div>
 
               <div className="flex gap-4 pt-4">
-                <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700">
+                <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20">
                   <Save size={18} /> Save Coupon
                 </button>
-                <button type="button" onClick={() => setView('list')} className="text-slate-600 px-6 py-3 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="button" onClick={() => setView('list')} className="text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 px-6 py-3 rounded-lg transition-colors">Cancel</button>
               </div>
             </form>
           </div>

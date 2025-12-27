@@ -5,7 +5,7 @@ import { AdminLayout } from '../components/AdminLayout';
 import { getProducts, getQuotes, getOrders, formatCurrency } from '../services/db';
 import { SEO } from '../components/SEO';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { AlertCircle, ExternalLink, HelpCircle, Terminal } from 'lucide-react';
+import { AlertCircle, ExternalLink, HelpCircle, Terminal } from '../components/Icons';
 
 export const AdminDashboard: React.FC = () => {
   const [productsCount, setProductsCount] = useState(0);
@@ -89,7 +89,7 @@ export const AdminDashboard: React.FC = () => {
                 You are currently looking at the <strong>Service List</strong>. You must click the <strong>blue name</strong> of your service (e.g., <span className="underline decoration-wavy">servers2-app</span>) in the table.
               </p>
               <div className="bg-blue-800/50 rounded-lg p-3 text-[10px] font-mono border border-white/5">
-                Cloud Run > <span className="text-white">servers2-app</span>
+                Cloud Run {' > '} <span className="text-white">servers2-app</span>
               </div>
             </div>
 
