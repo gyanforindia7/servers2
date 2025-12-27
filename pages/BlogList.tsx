@@ -9,19 +9,26 @@ import { Search } from '../components/Icons';
 export const BlogList: React.FC = () => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadPosts = async () => {
-        const result = await getBlogPosts();
-        setPosts([...result].reverse()); // Newest first
+        setLoading(true);
+        try {
+            const result = await getBlogPosts();
+            setPosts([...(result || [])].reverse());
+        } finally {
+            setLoading(false);
+        }
     };
     loadPosts();
   }, []);
 
-  const filteredPosts = posts.filter(p => 
-    p.title.toLowerCase().includes(search.toLowerCase()) || 
-    p.tags.some(t => t.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredPosts = posts.filter(p => {
+    const titleMatch = (p.title || '').toLowerCase().includes(search.toLowerCase());
+    const tagsMatch = (p.tags || []).some(t => t.toLowerCase().includes(search.toLowerCase()));
+    return titleMatch || tagsMatch;
+  });
 
   return (
     <>
@@ -42,14 +49,18 @@ export const BlogList: React.FC = () => {
              <input 
               type="text" 
               placeholder="Search articles..." 
-              className="w-full pl-12 pr-4 py-3 rounded-full border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-600 outline-none"
+              className="w-full pl-12 pr-4 py-3 rounded-full border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-600 outline-none dark:bg-white dark:text-slate-900"
               value={search}
               onChange={e => setSearch(e.target.value)}
              />
              <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
           </div>
 
-          {filteredPosts.length === 0 ? (
+          {loading ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {[1,2,3].map(i => <div key={i} className="h-80 bg-slate-200 rounded-xl animate-pulse"></div>)}
+             </div>
+          ) : filteredPosts.length === 0 ? (
             <div className="text-center py-20 text-slate-500">No articles found matching your criteria.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
