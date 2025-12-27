@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const { 
@@ -96,10 +97,18 @@ router.get('/quotes', async (req, res) => {
 
 router.post('/quotes', async (req, res) => {
     try {
-        const quote = new Quote({ ...req.body, id: `QT-${Date.now()}`, date: new Date() });
+        console.log('Incoming Quote Request:', req.body.customerEmail);
+        const quoteData = { ...req.body };
+        if (!quoteData.id) quoteData.id = `QT-${Date.now()}`;
+        if (!quoteData.date) quoteData.date = new Date();
+        
+        const quote = new Quote(quoteData);
         await quote.save();
         res.json(quote);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        console.error('Quote Save Error:', err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // --- Generic Routes (Brands, Pages, Blog, etc.) ---
@@ -108,10 +117,10 @@ router.post('/brands', async (req, res) => { try { res.json(await Brand.findOneA
 router.get('/pages', async (req, res) => { try { res.json(await Page.find({}).sort({ sortOrder: 1 }) || []); } catch { res.json([]); } });
 router.post('/pages', async (req, res) => { try { res.json(await Page.findOneAndUpdate({ id: req.body.id }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 router.get('/contact', async (req, res) => { try { res.json(await Contact.find({}).sort({ createdAt: -1 }) || []); } catch { res.json([]); } });
-router.post('/contact', async (req, res) => { try { res.json(await new Contact({ ...req.body, id: `MSG-${Date.now()}`, date: new Date() }).save()); } catch { res.status(500).json({}); } });
+router.post('/contact', async (req, res) => { try { res.json(await new Contact({ ...req.body, id: req.body.id || `MSG-${Date.now()}`, date: new Date() }).save()); } catch { res.status(500).json({}); } });
 router.get('/blog', async (req, res) => { try { res.json(await BlogPost.find({}).sort({ date: -1 }) || []); } catch { res.json([]); } });
 router.post('/blog', async (req, res) => { try { res.json(await BlogPost.findOneAndUpdate({ id: req.body.id }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 router.get('/orders', async (req, res) => { try { res.json(await Order.find({}).sort({ createdAt: -1 }) || []); } catch { res.json([]); } });
-router.post('/orders', async (req, res) => { try { res.json(await new Order({ ...req.body, id: `ORD-${Date.now()}` }).save()); } catch { res.status(500).json({}); } });
+router.post('/orders', async (req, res) => { try { res.json(await new Order({ ...req.body, id: req.body.id || `ORD-${Date.now()}` }).save()); } catch { res.status(500).json({}); } });
 
 module.exports = router;
