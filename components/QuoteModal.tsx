@@ -17,23 +17,31 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({ isOpen, onClose, initial
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    submitQuote({
-      products: initialProduct ? [{ productId: initialProduct.id, productName: initialProduct.name, quantity: initialProduct.quantity }] : [],
-      customerName: formData.name,
-      customerEmail: formData.email,
-      message: `${formData.message}\nPhone: ${formData.phone}`,
-    });
-    setSubmitted(true);
-    setTimeout(() => {
-        setSubmitted(false);
-        setFormData({ name: '', email: '', phone: '', message: '' });
-        onClose();
-    }, 4000); // Increased timeout to let user read
+    setIsSubmitting(true);
+    try {
+        await submitQuote({
+            products: initialProduct ? [{ productId: initialProduct.id, productName: initialProduct.name, quantity: initialProduct.quantity }] : [],
+            customerName: formData.name,
+            customerEmail: formData.email,
+            message: `${formData.message}\nPhone: ${formData.phone}`,
+        });
+        setSubmitted(true);
+        setTimeout(() => {
+            setSubmitted(false);
+            setFormData({ name: '', email: '', phone: '', message: '' });
+            onClose();
+        }, 4000);
+    } catch (err) {
+        alert("There was an issue sending your request. Please try again or contact support directly.");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -102,8 +110,12 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({ isOpen, onClose, initial
                   value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} placeholder="I need 128GB RAM configuration..." />
               </div>
 
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-blue-900/10">
-                Submit Request
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-blue-900/10"
+              >
+                {isSubmitting ? 'Sending Request...' : 'Submit Request'}
               </button>
             </form>
           )}
