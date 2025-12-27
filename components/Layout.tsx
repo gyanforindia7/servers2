@@ -128,8 +128,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <span className="flex items-center gap-2 shrink-0"><Phone size={12} /> {settings.supportPhone}</span>
             <span className="flex items-center gap-2 shrink-0"><Mail size={12} /> {settings.supportEmail}</span>
           </div>
-          <div className="flex gap-4 shrink-0">
-            <Link to="/admin" className="hover:text-white transition-colors">Admin Portal</Link>
+          {/* Admin link removed from public top bar */}
+          <div className="hidden md:block">
+            <span className="text-[10px] uppercase tracking-widest text-slate-500">Premium Enterprise Solutions</span>
           </div>
         </div>
       </div>
@@ -291,9 +292,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       <p className="text-xs text-slate-500 truncate">{user.email}</p>
                     </div>
                     {user.role === 'admin' ? (
-                      <Link to="/admin" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Admin Dashboard</Link>
+                      <Link to="/admin" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Admin Dashboard</Link>
                     ) : (
-                      <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">My Orders</Link>
+                      <Link to="/dashboard" onClick={() => setIsProfileOpen(false)} className="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">My Orders</Link>
                     )}
                     <button 
                       onClick={() => { logout(); setIsProfileOpen(false); }}
