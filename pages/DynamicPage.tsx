@@ -8,7 +8,8 @@ import { PageContent } from '../types';
 import { SEO } from '../components/SEO';
 
 export const DynamicPage: React.FC = () => {
-  const { slug } = useParams<{ slug: string }>();
+  // Fix: Removed generic type parameter from untyped useParams call
+  const { slug } = useParams();
   const [page, setPage] = useState<PageContent | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 

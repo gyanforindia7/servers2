@@ -11,7 +11,8 @@ import { ChevronDown, ChevronUp, Filter, X, Check } from '../components/Icons';
 import { useApp } from '../App';
 
 export const ProductList: React.FC = () => {
-  const { categorySlug } = useParams<{ categorySlug: string }>();
+  // Fix: Removed generic type parameter from untyped useParams call
+  const { categorySlug } = useParams();
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('q');
   const { categories } = useApp();

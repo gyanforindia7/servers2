@@ -9,7 +9,8 @@ import { SEO } from '../components/SEO';
 import { Calendar, User, Tag, ArrowRight } from '../components/Icons';
 
 export const BlogDetail: React.FC = () => {
-  const { slug } = useParams<{ slug: string }>();
+  // Fix: Removed generic type parameter from untyped useParams call
+  const { slug } = useParams();
   const [post, setPost] = useState<BlogPost | undefined>(undefined);
   const [recentPosts, setRecentPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
