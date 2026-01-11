@@ -1,20 +1,23 @@
 
 import React, { useEffect } from 'react';
+import { useApp } from '../App';
 
 interface SEOProps {
   title: string;
   description?: string;
+  keywords?: string;
   image?: string;
   url?: string;
   type?: string;
-  canonicalUrl?: string; // New
-  robots?: string; // New
-  ogImage?: string; // New override
+  canonicalUrl?: string;
+  robots?: string;
+  ogImage?: string;
 }
 
 export const SEO: React.FC<SEOProps> = ({ 
     title, 
     description, 
+    keywords,
     image, 
     url, 
     type = 'website',
@@ -22,27 +25,48 @@ export const SEO: React.FC<SEOProps> = ({
     robots,
     ogImage 
 }) => {
-  const siteTitle = `${title} | SERVERS 2`;
+  const { settings } = useApp();
+  const siteTitle = title ? `${title} | SERVERS 2` : 'SERVERS 2 | Enterprise IT Solutions';
   const siteUrl = url || window.location.href;
-  const siteImage = ogImage || image || 'https://serverpro-elite.com/og-image.jpg'; // Prefer OG Image override if set
+  const siteImage = ogImage || image || settings.logoUrl || 'https://serverpro-elite.com/og-image.jpg';
 
   useEffect(() => {
+    // 1. Update Document Title
     document.title = siteTitle;
     
-    // Meta Description
-    let metaDesc = document.querySelector('meta[name="description"]');
-    if (!metaDesc) {
-      metaDesc = document.createElement('meta');
-      metaDesc.setAttribute('name', 'description');
-      document.head.appendChild(metaDesc);
-    }
-    if (description) {
-      metaDesc.setAttribute('content', description);
-    } else {
-        metaDesc.removeAttribute('content');
+    // 2. Manage Favicon
+    if (settings.faviconUrl) {
+      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = settings.faviconUrl;
     }
 
-    // Canonical Link
+    // Helper to find/create meta tag
+    const setMeta = (attr: string, value: string, content: string, isProperty = false) => {
+      const selector = isProperty ? `meta[property="${value}"]` : `meta[name="${value}"]`;
+      let el = document.querySelector(selector);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(isProperty ? 'property' : 'name', value);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    // 3. Description & Keywords
+    if (description) setMeta('name', 'description', description);
+    if (keywords || settings.homeSeo?.keywords) {
+        setMeta('name', 'keywords', keywords || settings.homeSeo?.keywords || '');
+    }
+
+    // 4. Robots
+    setMeta('name', 'robots', robots || 'index, follow');
+
+    // 5. Canonical
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
         canonical = document.createElement('link');
@@ -51,38 +75,15 @@ export const SEO: React.FC<SEOProps> = ({
     }
     canonical.setAttribute('href', canonicalUrl || siteUrl);
 
-    // Robots Meta
-    let robotsMeta = document.querySelector('meta[name="robots"]');
-    if (!robotsMeta) {
-        robotsMeta = document.createElement('meta');
-        robotsMeta.setAttribute('name', 'robots');
-        document.head.appendChild(robotsMeta);
-    }
-    if (robots) {
-        robotsMeta.setAttribute('content', robots);
-    } else {
-        robotsMeta.setAttribute('content', 'index, follow');
-    }
+    // 6. Open Graph
+    setMeta('property', 'og:title', siteTitle, true);
+    setMeta('property', 'og:description', description || '', true);
+    setMeta('property', 'og:image', siteImage, true);
+    setMeta('property', 'og:url', canonicalUrl || siteUrl, true);
+    setMeta('property', 'og:type', type, true);
+    setMeta('property', 'og:site_name', 'SERVERS 2', true);
 
-    // Open Graph
-    const setMeta = (name: string, content: string) => {
-        let el = document.querySelector(`meta[property="${name}"]`);
-        if (!el) {
-            el = document.createElement('meta');
-            el.setAttribute('property', name);
-            document.head.appendChild(el);
-        }
-        el.setAttribute('content', content);
-    };
-
-    setMeta('og:title', siteTitle);
-    setMeta('og:description', description || '');
-    setMeta('og:image', siteImage);
-    setMeta('og:url', canonicalUrl || siteUrl);
-    setMeta('og:type', type);
-    setMeta('og:site_name', 'SERVERS 2');
-
-  }, [title, description, siteUrl, siteImage, type, canonicalUrl, robots, ogImage]);
+  }, [siteTitle, description, keywords, siteUrl, siteImage, type, canonicalUrl, robots, settings.faviconUrl, settings.homeSeo?.keywords, ogImage]);
 
   return null;
 };
