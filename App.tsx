@@ -82,21 +82,30 @@ const App: React.FC = () => {
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
+  // Optimistic Global Data Loading
   const refreshGlobalData = async () => {
     try {
+      // 1. Fire all requests immediately
+      const settingsPromise = getSiteSettings();
+      const categoriesPromise = getCategories();
+      const brandsPromise = getBrands();
+      const pagesPromise = getPages();
+      
+      // 2. Wait for first batch (often returns local data instantly thanks to db.ts optimization)
       const [s, c, b, p] = await Promise.all([
-        getSiteSettings(),
-        getCategories(),
-        getBrands(),
-        getPages()
+        settingsPromise,
+        categoriesPromise,
+        brandsPromise,
+        pagesPromise
       ]);
       
-      // Update state with recovered/fresh data
       setSettings(s);
       setCategories(c || []);
       setBrands(b || []);
       setPages(p || []);
       setIsDataLoaded(true);
+
+      // Background synchronization happens automatically within the fetchLive implementation in db.ts
     } catch (err) {
       console.error("Critical Data Load Error:", err);
     }
