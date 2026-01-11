@@ -30,7 +30,7 @@ import { QuoteModal } from './components/QuoteModal';
 import { AuthModal } from './components/AuthModal';
 import { Analytics } from './components/Analytics';
 import { CartItem, Product, User, SiteSettings, Category, Brand, PageContent } from './types';
-import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages } from './services/db';
+import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages, getCacheSync, STABLE_KEYS } from './services/db';
 
 interface AppContextType {
   cart: CartItem[];
@@ -66,54 +66,61 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
   return children;
 };
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
   
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [pages, setPages] = useState<PageContent[]>([]);
-  const [settings, setSettings] = useState<SiteSettings>({
+  // IMMEDIATE BOOT: Initialize state synchronously from cache
+  const [settings, setSettings] = useState<SiteSettings>(() => getCacheSync(STABLE_KEYS.SETTINGS, {
     id: 'settings', supportPhone: '...', supportEmail: '...', address: '...', whatsappNumber: ''
-  });
+  }));
+  const [categories, setCategories] = useState<Category[]>(() => getCacheSync(STABLE_KEYS.CATEGORIES, []));
+  const [brands, setBrands] = useState<Brand[]>(() => getCacheSync(STABLE_KEYS.BRANDS, []));
+  const [pages, setPages] = useState<PageContent[]>(() => getCacheSync(STABLE_KEYS.PAGES, []));
+  const [isDataLoaded, setIsDataLoaded] = useState(true);
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
-  // Optimistic Global Data Loading
+  // NON-BLOCKING BACKGROUND SYNC
   const refreshGlobalData = async () => {
-    try {
-      // 1. Fire all requests immediately
-      const settingsPromise = getSiteSettings();
-      const categoriesPromise = getCategories();
-      const brandsPromise = getBrands();
-      const pagesPromise = getPages();
-      
-      // 2. Wait for first batch (often returns local data instantly thanks to db.ts optimization)
-      const [s, c, b, p] = await Promise.all([
-        settingsPromise,
-        categoriesPromise,
-        brandsPromise,
-        pagesPromise
-      ]);
-      
-      setSettings(s);
-      setCategories(c || []);
-      setBrands(b || []);
-      setPages(p || []);
-      setIsDataLoaded(true);
-
-      // Background synchronization happens automatically within the fetchLive implementation in db.ts
-    } catch (err) {
-      console.error("Critical Data Load Error:", err);
-    }
+    // We don't 'await' these here because getX() returns cache immediately and syncs in background
+    getSiteSettings().then(setSettings);
+    getCategories().then(setCategories);
+    
+    // Slight stagger for secondary data to prioritize main content rendering
+    setTimeout(() => {
+        getBrands().then(setBrands);
+        getPages().then(setPages);
+    }, 500);
   };
 
   useEffect(() => {
     refreshGlobalData();
+    
+    // Load user and cart from session
+    try {
+        const savedUser = localStorage.getItem('s2_auth_user');
+        if (savedUser) setUser(JSON.parse(savedUser));
+        const savedCart = localStorage.getItem('s2_cart');
+        if (savedCart) setCart(JSON.parse(savedCart));
+    } catch(e) {}
   }, []);
+
+  useEffect(() => {
+      localStorage.setItem('s2_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  const login = (u: User) => {
+      setUser(u);
+      localStorage.setItem('s2_auth_user', JSON.stringify(u));
+  };
+
+  const logout = () => {
+      setUser(null);
+      localStorage.removeItem('s2_auth_user');
+  };
 
   const addToCart = (product: Product, qty: number) => {
     setCart(prev => {
@@ -130,7 +137,7 @@ const App: React.FC = () => {
       cart, user, settings, categories, brands, pages, isDataLoaded,
       addToCart, removeFromCart: (id) => setCart(prev => prev.filter(i => i.id !== id)),
       clearCart: () => setCart([]), checkout: () => {},
-      login: setUser, logout: () => setUser(null),
+      login, logout,
       openAuthModal: () => setIsAuthOpen(true),
       openQuoteModal: (p) => { setQuoteProduct(p || null); setIsQuoteOpen(true); },
       updateSettings: async (s) => { await saveSiteSettings(s); setSettings(s); },
@@ -167,7 +174,7 @@ const App: React.FC = () => {
         </Routes>
       </Router>
       <QuoteModal isOpen={isQuoteOpen} onClose={() => setIsQuoteOpen(false)} initialProduct={quoteProduct} />
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLogin={(u) => setUser(u)} />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLogin={login} />
     </AppContext.Provider>
   );
 };
