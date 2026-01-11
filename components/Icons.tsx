@@ -1,3 +1,4 @@
+
 import { 
   ShoppingCart, 
   Menu, 
@@ -58,7 +59,9 @@ import {
   ExternalLink,
   Terminal,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  // Added RefreshCcw icon
+  RefreshCcw
 } from 'lucide-react';
 
 export { 
@@ -121,5 +124,7 @@ export {
   ExternalLink,
   Terminal,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  // Exported RefreshCcw icon
+  RefreshCcw
 };

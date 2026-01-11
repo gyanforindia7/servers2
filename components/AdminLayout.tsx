@@ -1,28 +1,14 @@
-
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 // Fix: Destructure from namespace import with any cast to resolve environment export issues
 const { Link, useLocation } = ReactRouterDOM as any;
-import { LayoutDashboard, Box, FileText, ArrowRight, Tag, Briefcase, Package, MessageSquare, Settings, Ticket, Newspaper, Menu, X, Sun, Moon } from './Icons';
+import { LayoutDashboard, Box, FileText, Tag, Briefcase, Package, MessageSquare, Settings, Ticket, Newspaper, Menu, X } from './Icons';
 import { useApp } from '../App';
 
 export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const { user } = useApp();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
-
-  const toggleTheme = () => {
-    const newTheme = !isDark;
-    setIsDark(newTheme);
-    if (newTheme) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
 
   const navItems = [
     { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
@@ -42,7 +28,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 transition-colors">
       {/* Mobile Sidebar Backdrop */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
@@ -50,7 +36,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
 
       {/* Sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 dark:bg-slate-900 text-white flex flex-col h-screen transition-transform duration-300 md:translate-x-0 md:sticky md:top-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col h-screen transition-transform duration-300 md:translate-x-0 md:sticky md:top-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="p-6 border-b border-slate-800 flex justify-between items-center">
           <div>
@@ -77,16 +63,9 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
             </Link>
           ))}
         </nav>
-        <div className="p-6 border-t border-slate-800 space-y-4">
-            <button 
-                onClick={toggleTheme}
-                className="w-full flex items-center gap-3 px-4 py-2 bg-slate-800 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-colors"
-            >
-                {isDark ? <Sun size={14} /> : <Moon size={14} />}
-                {isDark ? 'Light Mode' : 'Dark Mode'}
-            </button>
+        <div className="p-6 border-t border-slate-800">
             <div className="text-[10px] text-slate-500 text-center uppercase tracking-widest">
-                v2.0-STABLE
+                v2.1-SECURE
             </div>
         </div>
       </aside>
@@ -94,7 +73,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Admin Header */}
-        <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 p-4 flex items-center justify-between md:px-8">
+        <header className="bg-white border-b p-4 flex items-center justify-between md:px-8">
             <div className="flex items-center gap-4">
                 <button className="md:hidden text-slate-500" onClick={() => setIsSidebarOpen(true)}>
                     <Menu size={24} />

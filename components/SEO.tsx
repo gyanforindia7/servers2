@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useApp } from '../App';
 
@@ -27,14 +26,13 @@ export const SEO: React.FC<SEOProps> = ({
 }) => {
   const { settings } = useApp();
   
-  // Construct clean titles
   const baseTitle = 'SERVERS 2';
-  const siteTitle = title ? `${title} | ${baseTitle}` : `${baseTitle} | Enterprise IT Solutions`;
+  const siteTitle = title ? title : `${baseTitle} | Enterprise IT Solutions`;
   const siteUrl = url || window.location.href;
   const siteImage = ogImage || image || settings.logoUrl || '';
 
   useEffect(() => {
-    // 1. Update Document Title
+    // 1. Force Update Document Title (updates <title> Dell PowerEdge R750 </title>)
     document.title = siteTitle;
     
     // 2. Manage Favicon
@@ -63,7 +61,7 @@ export const SEO: React.FC<SEOProps> = ({
       el.setAttribute('content', content);
     };
 
-    // 3. Metadata Updates
+    // 3. Metadata Updates (Directly updates meta html code)
     const metaDesc = description || settings.homeSeo?.metaDescription || 'Premium enterprise hardware, servers, storage, and workstations.';
     const metaKeys = keywords || settings.homeSeo?.keywords || 'servers, enterprise it, hardware, storage';
 
