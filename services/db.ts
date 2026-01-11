@@ -2,14 +2,14 @@ import { Product, Order, User, SiteSettings, Category, Brand, PageContent, Conta
 import { INITIAL_PRODUCTS } from '../constants';
 
 /**
- * STABLE PRODUCTION DATABASE SERVICE
- * Includes "Migration/Recovery" logic to find data lost during previous updates.
+ * GLOBAL STABLE DATABASE SERVICE
+ * Prioritizes Local Storage for instant feedback and data resilience.
  */
 
 const API_URL = '/api';
 const MEM_CACHE: Record<string, any> = {};
 
-// STABLE KEYS - No more version increments to prevent data loss
+// STABLE KEYS - Permanent storage locations
 const STABLE_KEYS = {
     PRODUCTS: 's2_stable_products',
     CATEGORIES: 's2_stable_categories',
@@ -18,15 +18,14 @@ const STABLE_KEYS = {
     BRANDS: 's2_stable_brands'
 };
 
-// Legacy keys to check for "lost" data
-const LEGACY_VERSIONS = ['v6', 'v5', 'v4'];
+// Comprehensive list of legacy keys to scan for "disappeared" data
+const LEGACY_VERSIONS = ['v7', 'v6', 'v5', 'v4', 'v3', 'v2', 'v1', ''];
 
 const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) => {
-    const headers: any = { 'Content-Type': 'application/json' };
     try {
         const response = await fetch(`${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`, { 
             method, 
-            headers,
+            headers: { 'Content-Type': 'application/json' },
             body: body ? JSON.stringify(body) : undefined
         });
         if (!response.ok) return null;
@@ -36,34 +35,48 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
         }
         return { success: true };
     } catch (err) {
-        return null;
+        return null; // Return null on network error to trigger local fallback
     }
 };
 
+/**
+ * Aggressive recovery of local data from any previous version
+ */
 const getPersisted = (key: string) => {
     if (MEM_CACHE[key]) return MEM_CACHE[key];
     
-    // 1. Try stable key first
     try {
+        // 1. Check Stable Key
         let data = localStorage.getItem(key);
         if (data) {
             const parsed = JSON.parse(data);
-            MEM_CACHE[key] = parsed;
-            return parsed;
+            if (Array.isArray(parsed) ? parsed.length > 0 : parsed) {
+                MEM_CACHE[key] = parsed;
+                return parsed;
+            }
         }
 
-        // 2. DATA RECOVERY BRIDGE: Check older versions if stable is empty
-        const baseKeyName = key.replace('s2_stable_', 's2_cache_');
+        // 2. Deep Recovery Bridge
+        const baseKeyName = key.includes('stable') 
+            ? key.replace('s2_stable_', 's2_cache_') 
+            : key;
+
         for (const ver of LEGACY_VERSIONS) {
-            const legacyKey = `${baseKeyName}_${ver}`;
+            const suffix = ver ? `_${ver}` : '';
+            const legacyKey = `${baseKeyName}${suffix}`;
             const legacyData = localStorage.getItem(legacyKey);
+            
             if (legacyData) {
-                const parsedLegacy = JSON.parse(legacyData);
-                console.log(`Recovered data from legacy key: ${legacyKey}`);
-                // Move to stable
-                localStorage.setItem(key, legacyData);
-                MEM_CACHE[key] = parsedLegacy;
-                return parsedLegacy;
+                try {
+                    const parsedLegacy = JSON.parse(legacyData);
+                    if (Array.isArray(parsedLegacy) ? parsedLegacy.length > 0 : parsedLegacy) {
+                        console.log(`🚀 Recovered data from: ${legacyKey}`);
+                        // Migrate to stable immediately
+                        localStorage.setItem(key, legacyData);
+                        MEM_CACHE[key] = parsedLegacy;
+                        return parsedLegacy;
+                    }
+                } catch (e) {}
             }
         }
     } catch (e) {}
@@ -72,78 +85,108 @@ const getPersisted = (key: string) => {
 
 const setPersisted = (key: string, data: any) => {
     MEM_CACHE[key] = data;
-    try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
+    try { 
+        localStorage.setItem(key, JSON.stringify(data)); 
+    } catch (e) {
+        console.error("Local Storage Save Error:", e);
+    }
 };
 
 export const clearAllCache = () => {
-    Object.keys(MEM_CACHE).forEach(key => delete MEM_CACHE[key]);
-    Object.values(STABLE_KEYS).forEach(key => localStorage.removeItem(key));
-    // Also clear the legacy ones to be sure
+    Object.keys(MEM_CACHE).forEach(k => delete MEM_CACHE[k]);
+    Object.values(STABLE_KEYS).forEach(k => localStorage.removeItem(k));
     LEGACY_VERSIONS.forEach(v => {
-        localStorage.removeItem(`s2_cache_products_${v}`);
-        localStorage.removeItem(`s2_cache_categories_${v}`);
-        localStorage.removeItem(`s2_cache_pages_${v}`);
+        const suffix = v ? `_${v}` : '';
+        localStorage.removeItem(`s2_cache_products${suffix}`);
+        localStorage.removeItem(`s2_cache_categories${suffix}`);
+        localStorage.removeItem(`s2_cache_pages${suffix}`);
     });
 };
 
+/**
+ * TRIPLE-CHECK FETCHING
+ * Prioritizes actual data presence over just "server online" status.
+ */
 const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise<T> => {
+    // 1. Attempt to get fresh data from server
     const freshData = await apiRequest(endpoint);
     
-    // If server has data, it wins
+    // Server wins ONLY if it returns non-empty data
     if (freshData !== null) {
-        const hasData = Array.isArray(freshData) ? freshData.length > 0 : (freshData && Object.keys(freshData).length > 0);
-        if (hasData) {
+        const hasServerData = Array.isArray(freshData) ? freshData.length > 0 : (freshData && Object.keys(freshData).length > 0);
+        if (hasServerData) {
             setPersisted(key, freshData);
             return freshData as unknown as T;
         }
     }
 
-    // Check Local Storage (including recovery of old data)
+    // 2. Check Local Cache (with Deep Recovery)
     const cached = getPersisted(key);
     if (cached) {
         const hasCachedData = Array.isArray(cached) ? cached.length > 0 : true;
         if (hasCachedData) return cached;
     }
 
-    // System Defaults
+    // 3. System Defaults
     return fallback;
 };
 
 export const getProducts = async (): Promise<Product[]> => fetchLive(STABLE_KEYS.PRODUCTS, '/products/all', INITIAL_PRODUCTS);
+
 export const getCategories = async (): Promise<Category[]> => {
     const defaultCats: Category[] = INITIAL_CATEGORY_NAMES.map((name, i) => ({
-        id: `cat-${i}`, name, slug: name.toLowerCase().replace(/ /g, '-'), showInMenu: true, showOnHome: true, sortOrder: i
+        id: `cat-default-${i}`, name, slug: name.toLowerCase().replace(/ /g, '-'), showInMenu: true, showOnHome: true, sortOrder: i
     }));
     return fetchLive(STABLE_KEYS.CATEGORIES, '/categories', defaultCats);
 };
+
 export const getPages = async (): Promise<PageContent[]> => fetchLive(STABLE_KEYS.PAGES, '/pages', []);
+
 export const getSiteSettings = async (): Promise<SiteSettings> => {
     const defaults: SiteSettings = { id: 'settings', supportPhone: '+91 000 000 0000', supportEmail: 'support@serverpro.com', address: 'Enterprise Hub, India', whatsappNumber: '' };
     return fetchLive(STABLE_KEYS.SETTINGS, '/settings', defaults);
 };
+
 export const getBrands = async (): Promise<Brand[]> => fetchLive(STABLE_KEYS.BRANDS, '/brands', []);
 
-// --- Persistence ---
+// --- SYNCHRONOUS LOCAL-FIRST PERSISTENCE ---
+
 export const saveProduct = async (product: Product): Promise<void> => {
-    const idToUse = product.id && !product.id.startsWith('p-new') ? product.id : `p-${Date.now()}`;
+    const isNew = !product.id || product.id.startsWith('p-new');
+    const idToUse = isNew ? `p-${Date.now()}` : product.id;
     const cleanProduct = { ...product, id: idToUse };
+
+    // Update Local Storage IMMEDIATELY (prevents UI lag or loss)
     const current = await getProducts();
     const updated = [...current.filter(p => p.id !== idToUse), cleanProduct];
     setPersisted(STABLE_KEYS.PRODUCTS, updated);
-    apiRequest(!product.id || product.id.startsWith('p-new') ? '/products' : `/products/${idToUse}`, !product.id || product.id.startsWith('p-new') ? 'POST' : 'PUT', cleanProduct);
+
+    // Sync to backend in background
+    apiRequest(isNew ? '/products' : `/products/${idToUse}`, isNew ? 'POST' : 'PUT', cleanProduct);
 };
 
-export const savePage = async (page: PageContent) => { 
-    const c = await getPages(); 
-    const updated = [...c.filter(p => p.id !== page.id), page];
+export const savePage = async (page: PageContent): Promise<void> => {
+    const isNew = !page.id || page.id.startsWith('pg-new') || page.id === '';
+    const idToUse = isNew ? `pg-${Date.now()}` : page.id;
+    const cleanPage = { ...page, id: idToUse };
+
+    const current = await getPages();
+    const updated = [...current.filter(p => p.id !== idToUse), cleanPage];
     setPersisted(STABLE_KEYS.PAGES, updated);
-    apiRequest('/pages', 'POST', page); 
+
+    apiRequest('/pages', 'POST', cleanPage);
 };
 
-export const saveCategory = async (cat: Category) => {
+export const saveCategory = async (cat: Category): Promise<void> => {
+    const isNew = !cat.id || cat.id.startsWith('cat-new') || cat.id === '';
+    const idToUse = isNew ? `cat-${Date.now()}` : cat.id;
+    const cleanCat = { ...cat, id: idToUse };
+
     const current = await getCategories();
-    setPersisted(STABLE_KEYS.CATEGORIES, [...current.filter(c => c.id !== cat.id), cat]);
-    apiRequest('/categories', 'POST', cat);
+    const updated = [...current.filter(c => c.id !== idToUse), cleanCat];
+    setPersisted(STABLE_KEYS.CATEGORIES, updated);
+
+    apiRequest('/categories', 'POST', cleanCat);
 };
 
 export const saveSiteSettings = async (settings: SiteSettings) => {
@@ -152,11 +195,14 @@ export const saveSiteSettings = async (settings: SiteSettings) => {
 };
 
 export const saveBrand = async (brand: Brand) => {
-    const c = await getBrands(); setPersisted(STABLE_KEYS.BRANDS, [...c.filter(b => b.id !== brand.id), brand]);
-    apiRequest('/brands', 'POST', brand);
+    const isNew = !brand.id || brand.id === '';
+    const idToUse = isNew ? `brand-${Date.now()}` : brand.id;
+    const current = await getBrands(); 
+    setPersisted(STABLE_KEYS.BRANDS, [...current.filter(b => b.id !== idToUse), { ...brand, id: idToUse }]);
+    apiRequest('/brands', 'POST', { ...brand, id: idToUse });
 };
 
-// --- Helpers & Others ---
+// --- Standard Helpers ---
 export const getProductBySlug = async (slug: string) => (await getProducts()).find(p => p.slug === slug);
 export const getCategoryBySlug = async (slug: string) => (await getCategories()).find(c => c.slug === slug);
 export const getPageBySlug = async (slug: string) => (await getPages()).find(p => p.slug === slug);
