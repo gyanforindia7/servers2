@@ -1,6 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { Link, useNavigate } = ReactRouterDOM as any;
 import { useApp } from '../App';
 import { ShoppingCart, Menu, X, Search, Server, Phone, Mail, FileText, UserCircle, LogOut, User, MapPin, ChevronDown, ChevronRight, Tag, Briefcase, Sun, Moon } from './Icons';
 import { formatCurrency, getProducts } from '../services/db';

@@ -1,5 +1,8 @@
+
 import React from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { Link } = ReactRouterDOM as any;
 import { Product } from '../types';
 import { ShoppingCart, FileText } from './Icons';
 import { formatCurrency } from '../services/db';

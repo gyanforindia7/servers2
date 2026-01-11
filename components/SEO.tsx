@@ -28,7 +28,7 @@ export const SEO: React.FC<SEOProps> = ({
   const { settings } = useApp();
   const siteTitle = title ? `${title} | SERVERS 2` : 'SERVERS 2 | Enterprise IT Solutions';
   const siteUrl = url || window.location.href;
-  const siteImage = ogImage || image || settings.logoUrl || 'https://serverpro-elite.com/og-image.jpg';
+  const siteImage = ogImage || image || settings.logoUrl || '';
 
   useEffect(() => {
     // 1. Update Document Title
@@ -36,54 +36,62 @@ export const SEO: React.FC<SEOProps> = ({
     
     // 2. Manage Favicon
     if (settings.faviconUrl) {
-      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
-      if (!link) {
-        link = document.createElement('link');
+      let links: HTMLLinkElement[] = Array.from(document.querySelectorAll("link[rel*='icon']"));
+      if (links.length === 0) {
+        const link = document.createElement('link');
         link.rel = 'icon';
         document.head.appendChild(link);
+        links = [link];
       }
-      link.href = settings.faviconUrl;
+      links.forEach(link => {
+        link.href = settings.faviconUrl || '';
+      });
     }
 
     // Helper to find/create meta tag
-    const setMeta = (attr: string, value: string, content: string, isProperty = false) => {
-      const selector = isProperty ? `meta[property="${value}"]` : `meta[name="${value}"]`;
-      let el = document.querySelector(selector);
+    const updateMeta = (name: string, content: string, isProperty = false) => {
+      const attr = isProperty ? 'property' : 'name';
+      let el = document.querySelector(`meta[${attr}="${name}"]`);
       if (!el) {
         el = document.createElement('meta');
-        el.setAttribute(isProperty ? 'property' : 'name', value);
+        el.setAttribute(attr, name);
         document.head.appendChild(el);
       }
       el.setAttribute('content', content);
     };
 
-    // 3. Description & Keywords
-    if (description) setMeta('name', 'description', description);
-    if (keywords || settings.homeSeo?.keywords) {
-        setMeta('name', 'keywords', keywords || settings.homeSeo?.keywords || '');
-    }
+    // 3. Metadata Updates
+    const metaDesc = description || settings.homeSeo?.metaDescription || 'Enterprise IT Solutions';
+    const metaKeys = keywords || settings.homeSeo?.keywords || '';
 
-    // 4. Robots
-    setMeta('name', 'robots', robots || 'index, follow');
+    updateMeta('description', metaDesc);
+    updateMeta('keywords', metaKeys);
+    updateMeta('robots', robots || 'index, follow');
 
-    // 5. Canonical
+    // 4. Canonical
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
         canonical = document.createElement('link');
         canonical.setAttribute('rel', 'canonical');
         document.head.appendChild(canonical);
     }
-    canonical.setAttribute('href', canonicalUrl || siteUrl);
+    canonical.setAttribute('href', canonicalUrl || siteUrl.split('#')[0]); // Clean hash for canonical
 
-    // 6. Open Graph
-    setMeta('property', 'og:title', siteTitle, true);
-    setMeta('property', 'og:description', description || '', true);
-    setMeta('property', 'og:image', siteImage, true);
-    setMeta('property', 'og:url', canonicalUrl || siteUrl, true);
-    setMeta('property', 'og:type', type, true);
-    setMeta('property', 'og:site_name', 'SERVERS 2', true);
+    // 5. Open Graph / Social
+    updateMeta('og:title', siteTitle, true);
+    updateMeta('og:description', metaDesc, true);
+    updateMeta('og:image', siteImage, true);
+    updateMeta('og:url', siteUrl, true);
+    updateMeta('og:type', type, true);
+    updateMeta('og:site_name', 'SERVERS 2', true);
 
-  }, [siteTitle, description, keywords, siteUrl, siteImage, type, canonicalUrl, robots, settings.faviconUrl, settings.homeSeo?.keywords, ogImage]);
+    // Twitter
+    updateMeta('twitter:card', 'summary_large_image');
+    updateMeta('twitter:title', siteTitle);
+    updateMeta('twitter:description', metaDesc);
+    updateMeta('twitter:image', siteImage);
+
+  }, [siteTitle, description, keywords, siteUrl, siteImage, type, canonicalUrl, robots, settings.faviconUrl, settings.homeSeo?.keywords, settings.homeSeo?.metaDescription]);
 
   return null;
 };
