@@ -1,10 +1,47 @@
 
 const express = require('express');
 const router = express.Router();
+const { GoogleGenAI } = require('@google/genai');
 const { 
   Product, Order, User, Settings, Category, Brand, Page, 
   Quote, Contact, Coupon, BlogPost 
 } = require('./models');
+
+// Fix: Initialize Gemini using strictly process.env.API_KEY as per guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+// --- Secure AI Endpoints ---
+router.post('/ai/description', async (req, res) => {
+    try {
+        const { productName, brand, category } = req.body;
+        // Fix: Use ai.models.generateContent directly with the recommended model
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: `Write a professional, enterprise-grade e-commerce product description for a ${brand} ${productName} in the ${category} category. 
+            Focus on reliability, performance, and scalability. 
+            Use HTML tags like <strong> and <ul> for formatting. 
+            Keep it between 150-250 words.`,
+        });
+        // Fix: Access response.text property directly
+        res.json({ text: response.text });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/ai/seo', async (req, res) => {
+    try {
+        const { productName, description } = req.body;
+        // Fix: Use ai.models.generateContent directly with the recommended model
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: `Generate SEO metadata for a product named "${productName}". 
+            Description context: ${description.substring(0, 200)}...
+            Return a JSON object with properties: metaTitle, metaDescription, and keywords (comma separated).`,
+            config: { responseMimeType: "application/json" }
+        });
+        // Fix: Access response.text property directly
+        res.json(JSON.parse(response.text));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // --- Products ---
 router.get('/products', async (req, res) => {
@@ -97,21 +134,15 @@ router.get('/quotes', async (req, res) => {
 
 router.post('/quotes', async (req, res) => {
     try {
-        console.log('Incoming Quote Request:', req.body.customerEmail);
         const quoteData = { ...req.body };
         if (!quoteData.id) quoteData.id = `QT-${Date.now()}`;
         if (!quoteData.date) quoteData.date = new Date();
-        
         const quote = new Quote(quoteData);
         await quote.save();
         res.json(quote);
-    } catch (err) { 
-        console.error('Quote Save Error:', err.message);
-        res.status(500).json({ error: err.message }); 
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- Generic Routes (Brands, Pages, Blog, etc.) ---
 router.get('/brands', async (req, res) => { try { res.json(await Brand.find({}) || []); } catch { res.json([]); } });
 router.post('/brands', async (req, res) => { try { res.json(await Brand.findOneAndUpdate({ id: req.body.id }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 router.get('/pages', async (req, res) => { try { res.json(await Page.find({}).sort({ sortOrder: 1 }) || []); } catch { res.json([]); } });

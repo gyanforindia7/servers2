@@ -8,6 +8,7 @@ const { Product, Category } = require('./models');
 require('dotenv').config();
 
 const app = express();
+// Priority: Process env PORT (Cloud) or 8080
 const PORT = process.env.PORT || 8080;
 
 // Middleware
@@ -76,19 +77,20 @@ if (mongoUri) {
     console.warn('WARNING: MONGO_URI missing. Using local fallback mode.');
 }
 
+// API Routes
 app.use('/api', apiRoutes);
 
 // Production Static Serving
-if (process.env.NODE_ENV === 'production' || !!process.env.PORT) {
-    const distPath = path.join(process.cwd(), 'dist');
-    if (fs.existsSync(distPath)) {
-        app.use(express.static(distPath));
-        app.get('*', (req, res) => {
-            if (!req.path.startsWith('/api')) {
-                res.sendFile(path.join(distPath, 'index.html'));
-            }
-        });
-    }
+const distPath = path.join(process.cwd(), 'dist');
+if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.sendFile(path.join(distPath, 'index.html'));
+        }
+    });
+} else {
+    console.log('Production build folder not found. Serving API only.');
 }
 
 app.listen(PORT, '0.0.0.0', () => {
