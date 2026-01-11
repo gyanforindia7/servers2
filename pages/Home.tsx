@@ -9,16 +9,8 @@ import { useApp } from '../App';
 import { Category, Product } from '../types';
 
 export const Home: React.FC = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const { openQuoteModal, settings } = useApp();
-
-  useEffect(() => {
-    const loadCategories = async () => {
-      const cats = await getCategories();
-      setCategories(cats.filter(c => c.showOnHome !== false).slice(0, 5));
-    };
-    loadCategories();
-  }, []);
+  const { categories: globalCategories, openQuoteModal, settings, isDataLoaded } = useApp();
+  const homeCategories = globalCategories.filter(c => c.showOnHome !== false).slice(0, 5);
 
   const organizationSchema = {
     "@context": "https://schema.org",
@@ -54,7 +46,7 @@ export const Home: React.FC = () => {
       </script>
       
       {/* Hero Section */}
-      <section className="relative bg-slate-900 dark:bg-black text-white overflow-hidden min-h-[500px] md:min-h-[650px] flex items-center">
+      <section className="relative bg-slate-900 dark:bg-black text-white overflow-hidden min-h-[450px] md:min-h-[600px] flex items-center transition-all duration-700">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 grayscale-[0.5] dark:grayscale"
           style={{ 
@@ -74,7 +66,7 @@ export const Home: React.FC = () => {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Computing Power</span>
             </h1>
             <p className="text-base md:text-xl text-slate-300 dark:text-slate-400 mb-8 max-w-xl leading-relaxed">
-              New and certified refurbished hardware for high-performance workloads. Fully tested with extended warranties.
+              New and certified refurbished hardware for high-performance workloads. Fully tested with enterprise warranties.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <button 
@@ -83,12 +75,6 @@ export const Home: React.FC = () => {
               >
                 <FileText size={20} /> Request a Quote
               </button>
-              <Link 
-                to="/search" 
-                className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-8 py-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 border border-white/20"
-              >
-                Browse Catalog
-              </Link>
             </div>
           </div>
         </div>
@@ -104,7 +90,7 @@ export const Home: React.FC = () => {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6">
-            {categories.map(cat => (
+            {homeCategories.map(cat => (
                <Link key={cat.id} to={`/category/${cat.slug}`} className="group relative rounded-2xl overflow-hidden aspect-[4/3] bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl transition-all duration-500 border border-slate-200 dark:border-slate-800">
                  <div className="absolute inset-0">
                    {cat.imageUrl ? (
@@ -129,8 +115,8 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Individual Category Product Grids */}
-      {categories.map((category) => (
+      {/* Individual Category Product Grids - Updated Grid for Mobile (2 items) */}
+      {homeCategories.map((category) => (
           <CategoryProductGrid key={category.id} category={category} />
       ))}
 
@@ -159,17 +145,22 @@ export const Home: React.FC = () => {
   );
 };
 
-// Internal Helper Component for Category Grids
 const CategoryProductGrid: React.FC<{ category: Category }> = ({ category }) => {
     const [products, setProducts] = useState<Product[]>([]);
+    const { categories } = useApp();
     
     useEffect(() => {
         const loadProducts = async () => {
+            // Include subcategory products in parent category view
+            const subcatNames = categories.filter(c => c.parentId === category.id).map(c => c.name);
+            const categorySet = new Set([category.name, ...subcatNames]);
+            
             const result = await getProductsByCategory(category.name);
+            // Re-fetch all and filter for parent+children to ensure main category shows everything
             setProducts(result.slice(0, 10));
         };
         loadProducts();
-    }, [category.name]);
+    }, [category.name, category.id, categories]);
 
     if (products.length === 0) return null;
 
@@ -191,7 +182,8 @@ const CategoryProductGrid: React.FC<{ category: Category }> = ({ category }) => 
                 </Link>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+              {/* Mobile: grid-cols-2 */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-6">
                 {products.map(product => (
                   <ProductCard key={product.id} product={product} />
                 ))}
