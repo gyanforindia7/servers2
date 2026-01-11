@@ -90,10 +90,12 @@ const App: React.FC = () => {
         getBrands(),
         getPages()
       ]);
-      if (s) setSettings(s);
-      if (c) setCategories(c);
-      if (b) setBrands(b);
-      if (p) setPages(p);
+      
+      // Update state with recovered/fresh data
+      setSettings(s);
+      setCategories(c || []);
+      setBrands(b || []);
+      setPages(p || []);
       setIsDataLoaded(true);
     } catch (err) {
       console.error("Critical Data Load Error:", err);
