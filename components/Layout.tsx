@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
 const { Link, useNavigate } = ReactRouterDOM as any;
 import { useApp } from '../App';
 import { ShoppingCart, Menu, X, Search, Phone, Mail, UserCircle, User, MapPin, ChevronDown, Tag } from './Icons';
@@ -9,7 +10,7 @@ import { Product, Category } from '../types';
 import { WhatsAppButton } from './WhatsAppButton';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { cart, user, openAuthModal, settings, categories, pages, isDataLoaded } = useApp();
+  const { cart, user, logout, openAuthModal, openQuoteModal, settings, categories, pages, brands, isDataLoaded } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [productResults, setProductResults] = useState<Product[]>([]);
@@ -35,8 +36,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
     if (query.length > 0) {
       const lowerQ = query.toLowerCase();
+      // Filter Categories
       setCategoryResults(categories.filter(c => c.name.toLowerCase().includes(lowerQ)).slice(0, 3));
       
+      // Filter Products (Dynamic fetching from cache/mem)
       const allProducts = await getProducts();
       const matchedProducts = allProducts.filter(p => p.isActive !== false).filter(p => 
         p.name.toLowerCase().includes(lowerQ) || 
@@ -73,7 +76,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const footerPages = pages.filter(p => p.showInFooter !== false);
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col min-h-screen bg-white transition-colors">
       <WhatsAppButton />
       {/* Top Bar */}
       <div className="bg-slate-900 text-slate-300 text-[10px] md:text-xs py-2 px-4">
@@ -124,7 +127,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <input 
                     type="text" 
                     placeholder="Search catalog..." 
-                    className="pl-4 pr-10 py-2 w-40 rounded-full bg-slate-100 border border-slate-200 focus:ring-2 focus:ring-blue-600 text-sm transition-all focus:w-64" 
+                    className="pl-4 pr-10 py-2 w-40 rounded-full bg-slate-100 border-none focus:ring-2 focus:ring-blue-600 text-sm transition-all focus:w-64" 
                     value={searchQuery} 
                     onChange={handleSearchChange} 
                   />
@@ -234,7 +237,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                </ul>
             </div>
           </div>
-          <div className="mt-12 pt-8 border-t border-slate-800 text-center text-xs text-slate-600">
+          <div className="mt-12 pt-8 border-t border-slate-800 text-center text-xs">
             &copy; {new Date().getFullYear()} SERVERS 2. All rights reserved.
           </div>
         </div>
