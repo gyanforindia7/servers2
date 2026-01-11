@@ -15,6 +15,8 @@ export interface GoogleMerchantData {
   mpn?: string;
   googleProductCategory?: string;
   identifierExists?: boolean;
+  brand?: string;
+  condition?: string;
   customLabel0?: string;
   customLabel1?: string;
   customLabel2?: string;
@@ -60,6 +62,7 @@ export interface Product {
   additionalSpecs?: Record<string, string>;
   stock: number;
   imageUrl: string;
+  imageUrls?: string[]; // Multiple images support
   condition: 'New' | 'Refurbished';
   isActive: boolean;
   isFeatured?: boolean;
