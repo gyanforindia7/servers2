@@ -32,7 +32,7 @@ export const SEO: React.FC<SEOProps> = ({
   const siteImage = ogImage || image || settings.logoUrl || '';
 
   useEffect(() => {
-    // 1. Force Update Document Title (updates <title> Dell PowerEdge R750 </title>)
+    // 1. Force Update Document Title (Updates the <title> tag in HTML)
     document.title = siteTitle;
     
     // 2. Manage Favicon
@@ -49,13 +49,12 @@ export const SEO: React.FC<SEOProps> = ({
       });
     }
 
-    // Helper to find/create meta tag
-    const updateMeta = (name: string, content: string, isProperty = false) => {
-      const attr = isProperty ? 'property' : 'name';
-      let el = document.querySelector(`meta[${attr}="${name}"]`);
+    // Helper to robustly find/update or create meta tag
+    const updateMetaTag = (attrName: string, attrValue: string, content: string) => {
+      let el = document.querySelector(`meta[${attrName}="${attrValue}"]`);
       if (!el) {
         el = document.createElement('meta');
-        el.setAttribute(attr, name);
+        el.setAttribute(attrName, attrValue);
         document.head.appendChild(el);
       }
       el.setAttribute('content', content);
@@ -65,11 +64,12 @@ export const SEO: React.FC<SEOProps> = ({
     const metaDesc = description || settings.homeSeo?.metaDescription || 'Premium enterprise hardware, servers, storage, and workstations.';
     const metaKeys = keywords || settings.homeSeo?.keywords || 'servers, enterprise it, hardware, storage';
 
-    updateMeta('description', metaDesc);
-    updateMeta('keywords', metaKeys);
-    updateMeta('robots', robots || 'index, follow');
+    // Standard Meta Tags
+    updateMetaTag('name', 'description', metaDesc);
+    updateMetaTag('name', 'keywords', metaKeys);
+    updateMetaTag('name', 'robots', robots || 'index, follow');
 
-    // 4. Canonical
+    // 4. Canonical Link Tag
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) {
         canonical = document.createElement('link');
@@ -78,19 +78,19 @@ export const SEO: React.FC<SEOProps> = ({
     }
     canonical.setAttribute('href', canonicalUrl || siteUrl.split('#')[0]);
 
-    // 5. Open Graph / Social
-    updateMeta('og:title', siteTitle, true);
-    updateMeta('og:description', metaDesc, true);
-    updateMeta('og:image', siteImage, true);
-    updateMeta('og:url', siteUrl, true);
-    updateMeta('og:type', type, true);
-    updateMeta('og:site_name', baseTitle, true);
+    // 5. Open Graph / Social Media Meta Tags
+    updateMetaTag('property', 'og:title', siteTitle);
+    updateMetaTag('property', 'og:description', metaDesc);
+    updateMetaTag('property', 'og:image', siteImage);
+    updateMetaTag('property', 'og:url', siteUrl);
+    updateMetaTag('property', 'og:type', type);
+    updateMetaTag('property', 'og:site_name', baseTitle);
 
-    // Twitter
-    updateMeta('twitter:card', 'summary_large_image');
-    updateMeta('twitter:title', siteTitle);
-    updateMeta('twitter:description', metaDesc);
-    updateMeta('twitter:image', siteImage);
+    // 6. Twitter Specific Meta Tags
+    updateMetaTag('name', 'twitter:card', 'summary_large_image');
+    updateMetaTag('name', 'twitter:title', siteTitle);
+    updateMetaTag('name', 'twitter:description', metaDesc);
+    updateMetaTag('name', 'twitter:image', siteImage);
 
   }, [siteTitle, description, keywords, siteUrl, siteImage, type, canonicalUrl, robots, settings.faviconUrl, settings.homeSeo]);
 

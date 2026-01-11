@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-// Fix: Destructure from namespace import with any cast to resolve environment export issues
 const { Link, useLocation } = ReactRouterDOM as any;
 import { LayoutDashboard, Box, FileText, Tag, Briefcase, Package, MessageSquare, Settings, Ticket, Newspaper, Menu, X } from './Icons';
 import { useApp } from '../App';
@@ -23,28 +22,18 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
     { label: 'CMS', path: '/admin/cms', icon: <Settings size={18} /> },
   ];
 
-  if (!user || user.role !== 'admin') {
-    return null;
-  }
+  if (!user || user.role !== 'admin') return null;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 transition-colors">
-      {/* Mobile Sidebar Backdrop */}
+    <div className="flex min-h-screen bg-slate-100 text-slate-900">
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
-      <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col h-screen transition-transform duration-300 md:translate-x-0 md:sticky md:top-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      >
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white flex flex-col h-screen transition-transform duration-300 md:translate-x-0 md:sticky md:top-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-black tracking-tighter">ADMIN <span className="text-blue-50">P7</span></h1>
-          </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white">
-            <X size={24} />
-          </button>
+          <h1 className="text-xl font-black tracking-tighter">ADMIN <span className="text-blue-400">P7</span></h1>
+          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><X size={24} /></button>
         </div>
         <nav className="p-4 space-y-1 flex-1 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => (
@@ -54,7 +43,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
               onClick={() => setIsSidebarOpen(false)}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path))
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  ? 'bg-blue-600 text-white shadow-lg'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
@@ -64,28 +53,22 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           ))}
         </nav>
         <div className="p-6 border-t border-slate-800">
-            <div className="text-[10px] text-slate-500 text-center uppercase tracking-widest">
-                v2.1-SECURE
-            </div>
+            <div className="text-[10px] text-slate-500 text-center uppercase tracking-widest font-bold">v2.5-STABLE-LIGHT</div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Admin Header */}
-        <header className="bg-white border-b p-4 flex items-center justify-between md:px-8">
+        <header className="bg-white border-b p-4 flex items-center justify-between md:px-8 shadow-sm">
             <div className="flex items-center gap-4">
-                <button className="md:hidden text-slate-500" onClick={() => setIsSidebarOpen(true)}>
-                    <Menu size={24} />
-                </button>
-                <h2 className="text-lg font-bold truncate">Management</h2>
+                <button className="md:hidden text-slate-500" onClick={() => setIsSidebarOpen(true)}><Menu size={24} /></button>
+                <h2 className="text-lg font-bold text-slate-800">Management Panel</h2>
             </div>
             <div className="flex items-center gap-4">
                 <div className="hidden sm:block text-right">
-                    <div className="text-xs font-bold">{user.name}</div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-widest">System Admin</div>
+                    <div className="text-xs font-bold text-slate-900">{user.name}</div>
+                    <div className="text-[10px] text-slate-500 uppercase tracking-widest">System Administrator</div>
                 </div>
-                <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">
+                <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold shadow-md">
                     {user.name.charAt(0)}
                 </div>
             </div>
