@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { getCategories, saveCategory, deleteCategory } from '../services/db';
@@ -12,6 +11,7 @@ export const AdminCategories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [view, setView] = useState<'list' | 'form'>('list');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   const initialForm: Category = {
     id: '', name: '', slug: '', description: '', imageUrl: '', showOnHome: true, showInMenu: true, parentId: '', 
@@ -25,7 +25,6 @@ export const AdminCategories: React.FC = () => {
   };
   useEffect(() => { refresh(); }, []);
 
-  // Auto-slugging logic
   useEffect(() => {
     if (!editingId && formData.name) {
       const generatedSlug = formData.name.toLowerCase()
@@ -37,22 +36,39 @@ export const AdminCategories: React.FC = () => {
 
   const handleEdit = (cat: Category) => {
     setEditingId(cat.id);
-    setFormData({ ...cat, imageUrl: cat.imageUrl || '', showOnHome: cat.showOnHome !== false, showInMenu: cat.showInMenu !== false, parentId: cat.parentId || '', seo: { ...initialForm.seo, ...cat.seo } });
+    setFormData({ 
+      ...cat, 
+      imageUrl: cat.imageUrl || '', 
+      showOnHome: cat.showOnHome !== false, 
+      showInMenu: cat.showInMenu !== false, 
+      parentId: cat.parentId || '', 
+      seo: { ...initialForm.seo, ...cat.seo } 
+    });
     setView('form');
   };
 
   const handleCreate = () => {
     setEditingId(null);
-    setFormData({ ...initialForm, id: `cat-${Date.now()}` });
+    setFormData({ ...initialForm, id: '' });
     setView('form');
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalData = { ...formData, parentId: formData.parentId === '' ? undefined : formData.parentId };
-    await saveCategory(finalData);
-    await refreshGlobalData();
-    setView('list'); refresh();
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    try {
+        const finalData = { ...formData, parentId: formData.parentId === '' ? undefined : formData.parentId };
+        await saveCategory(finalData);
+        await refreshGlobalData();
+        setView('list'); 
+        refresh();
+    } catch (err) {
+        alert("Failed to save category. Please try again.");
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -102,7 +118,7 @@ export const AdminCategories: React.FC = () => {
         </>
       ) : (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center"><div className="flex items-center gap-4"><button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800"><ArrowRight className="rotate-180" size={24} /></button><h3 className="text-xl font-bold dark:text-white">{editingId ? 'Edit Category' : 'Add New Category'}</h3></div><div className="flex gap-2"><button type="button" onClick={() => setView('list')} className="px-4 py-2 text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">Cancel</button><button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">Save Category</button></div></div>
+          <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center"><div className="flex items-center gap-4"><button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-800"><ArrowRight className="rotate-180" size={24} /></button><h3 className="text-xl font-bold dark:text-white">{editingId ? 'Edit Category' : 'Add New Category'}</h3></div><div className="flex gap-2"><button type="button" onClick={() => setView('list')} className="px-4 py-2 text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">Cancel</button><button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50">{isSaving ? 'Saving...' : 'Save Category'}</button></div></div>
           <div className="p-8 max-w-4xl mx-auto">
             <form onSubmit={handleSave} className="space-y-8">
               <section>
