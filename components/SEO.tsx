@@ -26,7 +26,10 @@ export const SEO: React.FC<SEOProps> = ({
     ogImage 
 }) => {
   const { settings } = useApp();
-  const siteTitle = title ? `${title} | SERVERS 2` : 'SERVERS 2 | Enterprise IT Solutions';
+  
+  // Construct clean titles
+  const baseTitle = 'SERVERS 2';
+  const siteTitle = title ? `${title} | ${baseTitle}` : `${baseTitle} | Enterprise IT Solutions`;
   const siteUrl = url || window.location.href;
   const siteImage = ogImage || image || settings.logoUrl || '';
 
@@ -61,8 +64,8 @@ export const SEO: React.FC<SEOProps> = ({
     };
 
     // 3. Metadata Updates
-    const metaDesc = description || settings.homeSeo?.metaDescription || 'Enterprise IT Solutions';
-    const metaKeys = keywords || settings.homeSeo?.keywords || '';
+    const metaDesc = description || settings.homeSeo?.metaDescription || 'Premium enterprise hardware, servers, storage, and workstations.';
+    const metaKeys = keywords || settings.homeSeo?.keywords || 'servers, enterprise it, hardware, storage';
 
     updateMeta('description', metaDesc);
     updateMeta('keywords', metaKeys);
@@ -75,7 +78,7 @@ export const SEO: React.FC<SEOProps> = ({
         canonical.setAttribute('rel', 'canonical');
         document.head.appendChild(canonical);
     }
-    canonical.setAttribute('href', canonicalUrl || siteUrl.split('#')[0]); // Clean hash for canonical
+    canonical.setAttribute('href', canonicalUrl || siteUrl.split('#')[0]);
 
     // 5. Open Graph / Social
     updateMeta('og:title', siteTitle, true);
@@ -83,7 +86,7 @@ export const SEO: React.FC<SEOProps> = ({
     updateMeta('og:image', siteImage, true);
     updateMeta('og:url', siteUrl, true);
     updateMeta('og:type', type, true);
-    updateMeta('og:site_name', 'SERVERS 2', true);
+    updateMeta('og:site_name', baseTitle, true);
 
     // Twitter
     updateMeta('twitter:card', 'summary_large_image');
@@ -91,7 +94,7 @@ export const SEO: React.FC<SEOProps> = ({
     updateMeta('twitter:description', metaDesc);
     updateMeta('twitter:image', siteImage);
 
-  }, [siteTitle, description, keywords, siteUrl, siteImage, type, canonicalUrl, robots, settings.faviconUrl, settings.homeSeo?.keywords, settings.homeSeo?.metaDescription]);
+  }, [siteTitle, description, keywords, siteUrl, siteImage, type, canonicalUrl, robots, settings.faviconUrl, settings.homeSeo]);
 
   return null;
 };
