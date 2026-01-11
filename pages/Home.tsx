@@ -1,9 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { Link } = ReactRouterDOM as any;
 import { SEO } from '../components/SEO';
 import { FileText, Server, HardDrive, Laptop, Cpu, ArrowRight, CheckCircle, Phone, Truck } from '../components/Icons';
-import { getCategories, getProductsByCategory } from '../services/db';
+import { getCategories, getProductsByCategory, getProducts } from '../services/db';
 import { ProductCard } from '../components/ProductCard';
 import { useApp } from '../App';
 import { Category, Product } from '../types';
@@ -17,7 +19,7 @@ export const Home: React.FC = () => {
     "@type": "Organization",
     "name": "SERVERS 2",
     "url": window.location.origin,
-    "logo": settings.logoUrl || "https://serverpro-elite.com/logo.png",
+    "logo": settings.logoUrl || "",
     "contactPoint": {
       "@type": "ContactPoint",
       "telephone": settings.supportPhone,
@@ -58,12 +60,12 @@ export const Home: React.FC = () => {
         
         <div className="container mx-auto px-4 py-16 relative z-10">
           <div className="max-w-3xl">
-            <div className="inline-block bg-blue-600/30 border border-blue-500/50 text-blue-200 text-[10px] md:text-xs font-bold px-3 py-1 rounded-full mb-6 backdrop-blur-sm">
+            <div className="inline-block bg-blue-600/30 border border-blue-500/50 text-blue-200 text-[10px] md:text-xs font-bold px-3 py-1 rounded-full mb-6 backdrop-blur-sm uppercase tracking-widest">
               PREMIUM HARDWARE • GLOBAL SHIPPING
             </div>
             <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-[1.1] tracking-tight">
               Enterprise <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Computing Power</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 uppercase">Computing Power</span>
             </h1>
             <p className="text-base md:text-xl text-slate-300 dark:text-slate-400 mb-8 max-w-xl leading-relaxed">
               New and certified refurbished hardware for high-performance workloads. Fully tested with enterprise warranties.
@@ -71,7 +73,7 @@ export const Home: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-4">
               <button 
                 onClick={() => openQuoteModal()} 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-500/30 hover:-translate-y-1"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-xl shadow-blue-500/30 hover:-translate-y-1 uppercase tracking-tight"
               >
                 <FileText size={20} /> Request a Quote
               </button>
@@ -85,7 +87,7 @@ export const Home: React.FC = () => {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-end mb-10">
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Shop by Category</h2>
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white uppercase tracking-tighter">Shop by Category</h2>
               <div className="w-12 h-1 bg-blue-600 mt-2"></div>
             </div>
           </div>
@@ -151,12 +153,21 @@ const CategoryProductGrid: React.FC<{ category: Category }> = ({ category }) => 
     
     useEffect(() => {
         const loadProducts = async () => {
-            // Include subcategory products in parent category view
-            const subcatNames = categories.filter(c => c.parentId === category.id).map(c => c.name);
-            const categorySet = new Set([category.name, ...subcatNames]);
+            const allProducts = await getProducts();
             
-            const result = await getProductsByCategory(category.name);
-            // Re-fetch all and filter for parent+children to ensure main category shows everything
+            // Recursive function to get all subcategory names
+            const getChildCategoryNames = (parentId: string): string[] => {
+                const children = categories.filter(c => c.parentId === parentId);
+                let names = children.map(c => c.name);
+                children.forEach(child => {
+                  names = [...names, ...getChildCategoryNames(child.id)];
+                });
+                return names;
+            };
+
+            const targetCategories = [category.name, ...getChildCategoryNames(category.id)];
+            const result = allProducts.filter(p => targetCategories.includes(p.category) && p.isActive !== false);
+            
             setProducts(result.slice(0, 10));
         };
         loadProducts();
@@ -169,14 +180,14 @@ const CategoryProductGrid: React.FC<{ category: Category }> = ({ category }) => 
             <div className="container mx-auto px-4">
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 uppercase tracking-tighter">
                     <span className="w-2 h-8 bg-blue-600 rounded-full"></span>
                     {category.name}
                   </h2>
                 </div>
                 <Link 
                   to={`/category/${category.slug}`} 
-                  className="group flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                  className="group flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 font-bold hover:underline uppercase tracking-tight"
                 >
                   View All <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform"/>
                 </Link>

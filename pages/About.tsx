@@ -8,9 +8,13 @@ export const About: React.FC = () => {
   const [content, setContent] = useState<PageContent | undefined>(undefined);
 
   useEffect(() => {
-    // Attempt to fetch dynamic content first
-    const dynamicAbout = getPageBySlug('about');
-    if (dynamicAbout) setContent(dynamicAbout);
+    // Fix: Using an async function inside useEffect to properly await the promise
+    const loadContent = async () => {
+      // Attempt to fetch dynamic content first
+      const dynamicAbout = await getPageBySlug('about');
+      if (dynamicAbout) setContent(dynamicAbout);
+    };
+    loadContent();
   }, []);
 
   return (

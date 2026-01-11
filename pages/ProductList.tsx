@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { useParams, useSearchParams } = ReactRouterDOM as any;
 import { getProducts, getBrands, getCategoryBySlug, formatCurrency } from '../services/db';
 import { Product, Category, Brand } from '../types';
 import { SEO } from '../components/SEO';
@@ -41,9 +43,17 @@ export const ProductList: React.FC = () => {
             const cat = await getCategoryBySlug(categorySlug);
             setCurrentCategory(cat);
             if (cat) {
-              // Find child categories
-              const subcatNames = categories.filter(c => c.parentId === cat.id).map(c => c.name);
-              const targetCategories = [cat.name, ...subcatNames];
+              // Recursive function to get all subcategory names
+              const getChildCategoryNames = (parentId: string): string[] => {
+                const children = categories.filter(c => c.parentId === parentId);
+                let names = children.map(c => c.name);
+                children.forEach(child => {
+                  names = [...names, ...getChildCategoryNames(child.id)];
+                });
+                return names;
+              };
+
+              const targetCategories = [cat.name, ...getChildCategoryNames(cat.id)];
               initialList = allProducts.filter(p => targetCategories.includes(p.category));
             } else {
               initialList = [];

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { getBlogPosts, saveBlogPost, deleteBlogPost } from '../services/db';
@@ -18,7 +17,11 @@ export const AdminBlog: React.FC = () => {
   const [formData, setFormData] = useState<BlogPost>(initialForm);
   const [tagsInput, setTagsInput] = useState('');
 
-  const refresh = () => setPosts(getBlogPosts());
+  // Fix: Making refresh async to await the result from getBlogPosts()
+  const refresh = async () => {
+    const data = await getBlogPosts();
+    setPosts(data);
+  };
   useEffect(() => { refresh(); }, []);
 
   const handleEdit = (post: BlogPost) => {
@@ -33,18 +36,18 @@ export const AdminBlog: React.FC = () => {
     setView('form');
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const slug = formData.slug || formData.title.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
     const tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
-    saveBlogPost({ ...formData, slug, tags });
+    await saveBlogPost({ ...formData, slug, tags });
     setView('list'); refresh();
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     // eslint-disable-next-line no-restricted-globals
-    if (window.confirm('Delete this article?')) { deleteBlogPost(id); refresh(); }
+    if (window.confirm('Delete this article?')) { await deleteBlogPost(id); refresh(); }
   };
 
   return (

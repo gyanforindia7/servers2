@@ -1,6 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
-import { useLocation, Link, Navigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { useLocation, Link, Navigate } = ReactRouterDOM as any;
 import { getOrderById, formatCurrency } from '../services/db';
 import { Order } from '../types';
 import { CheckCircle, Package, ArrowRight } from '../components/Icons';
@@ -12,10 +14,14 @@ export const ThankYou: React.FC = () => {
   const [order, setOrder] = useState<Order | undefined>(undefined);
 
   useEffect(() => {
-    if (orderId) {
-      const foundOrder = getOrderById(orderId);
-      setOrder(foundOrder);
-    }
+    // Fix: Using an async function inside useEffect to properly await the promise
+    const loadOrderData = async () => {
+      if (orderId) {
+        const foundOrder = await getOrderById(orderId);
+        setOrder(foundOrder);
+      }
+    };
+    loadOrderData();
   }, [orderId]);
 
   if (!orderId) return <Navigate to="/" />;

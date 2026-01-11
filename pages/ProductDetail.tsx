@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { useParams, Link } = ReactRouterDOM as any;
 import { getProductBySlug, getSimilarProducts, formatCurrency } from '../services/db';
 import { Product } from '../types';
 import { useApp } from '../App';

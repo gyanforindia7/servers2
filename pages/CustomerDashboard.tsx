@@ -1,7 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../App';
-import { Navigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { Navigate } = ReactRouterDOM as any;
 import { getUserOrders, formatCurrency } from '../services/db';
 import { SEO } from '../components/SEO';
 import { Package, Truck, CheckCircle, XCircle } from 'lucide-react';

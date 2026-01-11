@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { useNavigate } = ReactRouterDOM as any;
 import { Lock, Server } from '../components/Icons';
 import { useApp } from '../App';
 import { authenticateUser } from '../services/db';

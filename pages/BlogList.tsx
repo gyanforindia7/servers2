@@ -16,7 +16,14 @@ export const BlogList: React.FC = () => {
         setLoading(true);
         try {
             const result = await getBlogPosts();
-            setPosts([...(result || [])].reverse());
+            if (Array.isArray(result)) {
+                setPosts([...result].reverse());
+            } else {
+                setPosts([]);
+            }
+        } catch (err) {
+            console.error("Failed to load blog posts:", err);
+            setPosts([]);
         } finally {
             setLoading(false);
         }
@@ -25,8 +32,10 @@ export const BlogList: React.FC = () => {
   }, []);
 
   const filteredPosts = posts.filter(p => {
+    if (!p) return false;
     const titleMatch = (p.title || '').toLowerCase().includes(search.toLowerCase());
-    const tagsMatch = (p.tags || []).some(t => t.toLowerCase().includes(search.toLowerCase()));
+    const tags = Array.isArray(p.tags) ? p.tags : [];
+    const tagsMatch = tags.some(t => t.toLowerCase().includes(search.toLowerCase()));
     return titleMatch || tagsMatch;
   });
 
@@ -41,7 +50,7 @@ export const BlogList: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-slate-50 min-h-screen py-12">
+      <div className="bg-slate-50 dark:bg-slate-950 min-h-screen py-12 transition-colors">
         <div className="container mx-auto px-4">
           
           {/* Search */}
@@ -49,7 +58,7 @@ export const BlogList: React.FC = () => {
              <input 
               type="text" 
               placeholder="Search articles..." 
-              className="w-full pl-12 pr-4 py-3 rounded-full border border-slate-200 shadow-sm focus:ring-2 focus:ring-blue-600 outline-none dark:bg-white dark:text-slate-900"
+              className="w-full pl-12 pr-4 py-3 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm focus:ring-2 focus:ring-blue-600 outline-none dark:bg-slate-900 dark:text-white"
               value={search}
               onChange={e => setSearch(e.target.value)}
              />
@@ -58,7 +67,7 @@ export const BlogList: React.FC = () => {
 
           {loading ? (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {[1,2,3].map(i => <div key={i} className="h-80 bg-slate-200 rounded-xl animate-pulse"></div>)}
+                {[1,2,3].map(i => <div key={i} className="h-80 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse"></div>)}
              </div>
           ) : filteredPosts.length === 0 ? (
             <div className="text-center py-20 text-slate-500">No articles found matching your criteria.</div>
