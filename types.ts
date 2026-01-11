@@ -5,17 +5,17 @@ export interface SEOData {
   metaTitle: string;
   metaDescription: string;
   keywords: string;
-  canonicalUrl?: string; // New: Custom canonical
-  robots?: string; // New: index,follow etc.
-  ogImage?: string; // New: Social share image override
+  canonicalUrl?: string;
+  robots?: string;
+  ogImage?: string;
 }
 
 export interface GoogleMerchantData {
   gtin?: string;
   mpn?: string;
   googleProductCategory?: string;
-  identifierExists?: boolean; // New: For items without GTIN
-  customLabel0?: string; // New: For ad campaigns
+  identifierExists?: boolean;
+  customLabel0?: string;
   customLabel1?: string;
   customLabel2?: string;
   customLabel3?: string;
@@ -30,10 +30,10 @@ export interface Category {
   imageUrl?: string;
   showOnHome?: boolean;
   showInMenu?: boolean; 
-  showInFooter?: boolean; // New: Footer visibility
+  showInFooter?: boolean;
   parentId?: string;
   children?: Category[];
-  sortOrder?: number; // New: For menu ordering
+  sortOrder?: number;
   seo?: SEOData;
 }
 
@@ -101,8 +101,8 @@ export interface Order {
   total: number;
   discount?: number;
   couponCode?: string;
-  status: 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled'; // Added Cancelled
-  cancellationReason?: string; // Added reason
+  status: 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
+  cancellationReason?: string;
   shippingDetails: ShippingDetails;
   paymentMethod: string;
 }
@@ -135,14 +135,15 @@ export interface PageContent {
   title: string;
   content: string; 
   showInMenu?: boolean; 
-  showInFooter?: boolean; // New: Footer visibility
-  sortOrder?: number; // New: For menu ordering
+  showInFooter?: boolean;
+  sortOrder?: number;
   seo?: SEOData;
 }
 
 export interface SiteSettings {
   id: 'settings';
   logoUrl?: string;
+  faviconUrl?: string;
   bannerUrl?: string;
   whatsappNumber: string;
   supportPhone: string;
@@ -152,18 +153,12 @@ export interface SiteSettings {
   linkedinUrl?: string;
   twitterUrl?: string;
   homeSeo?: SEOData;
-  googleAnalyticsId?: string; // New: GA ID
-  taxRates?: number[]; // New: Configurable Tax Rates
-  
-  // Payment Settings
+  googleAnalyticsId?: string;
+  taxRates?: number[];
   enableCOD?: boolean;
-  
-  // Razorpay
   enableRazorpay?: boolean;
   razorpayKeyId?: string;
   razorpayKeySecret?: string;
-
-  // PhonePe
   enablePhonePe?: boolean;
   phonePeMerchantId?: string;
   phonePeSaltKey?: string;
