@@ -1,5 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+// Fix: Destructure from namespace import with any cast to resolve environment export issues
+const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM as any;
+const Router = HashRouter;
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { ProductList } from './pages/ProductList';
