@@ -30,7 +30,7 @@ import { QuoteModal } from './components/QuoteModal';
 import { AuthModal } from './components/AuthModal';
 import { Analytics } from './components/Analytics';
 import { CartItem, Product, User, SiteSettings, Category, Brand, PageContent } from './types';
-import { getSiteSettings, getCategories, getBrands, getPages, clearAllCache } from './services/db';
+import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages } from './services/db';
 
 interface AppContextType {
   cart: CartItem[];
@@ -49,7 +49,7 @@ interface AppContextType {
   openAuthModal: () => void;
   openQuoteModal: (product?: {id: string, name: string, quantity: number}) => void;
   updateSettings: (settings: SiteSettings) => void;
-  refreshGlobalData: (force?: boolean) => Promise<void>;
+  refreshGlobalData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -82,8 +82,7 @@ const App: React.FC = () => {
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
-  const refreshGlobalData = async (force: boolean = false) => {
-    if (force) clearAllCache();
+  const refreshGlobalData = async () => {
     try {
       const [s, c, b, p] = await Promise.all([
         getSiteSettings(),
@@ -123,7 +122,7 @@ const App: React.FC = () => {
       login: setUser, logout: () => setUser(null),
       openAuthModal: () => setIsAuthOpen(true),
       openQuoteModal: (p) => { setQuoteProduct(p || null); setIsQuoteOpen(true); },
-      updateSettings: (s) => setSettings(s),
+      updateSettings: async (s) => { await saveSiteSettings(s); setSettings(s); },
       refreshGlobalData
     }}>
       <Router>
