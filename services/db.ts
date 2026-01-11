@@ -2,14 +2,13 @@ import { Product, Order, User, SiteSettings, Category, Brand, PageContent, Conta
 import { INITIAL_PRODUCTS } from '../constants';
 
 /**
- * ROBUST DATABASE SERVICE (Local-First Architecture)
- * 1. Saves are immediate to LocalStorage.
- * 2. Background sync with Server.
- * 3. Deep recovery for legacy data.
+ * HIGH-PERFORMANCE DATABASE SERVICE
+ * Uses Stale-While-Revalidate pattern for sub-second loading.
  */
 
 const API_URL = '/api';
 const MEM_CACHE: Record<string, any> = {};
+let MIGRATION_DONE = false;
 
 const STABLE_KEYS = {
     PRODUCTS: 's2_stable_products',
@@ -40,13 +39,11 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
 };
 
 /**
- * Aggressively scans all possible local storage keys to recover lost data.
+ * Optimized recovery that avoids redundant scans.
  */
 const getPersisted = (key: string) => {
-    // 1. Check current memory
     if (MEM_CACHE[key]) return MEM_CACHE[key];
     
-    // 2. Check stable local storage
     try {
         const data = localStorage.getItem(key);
         if (data) {
@@ -57,23 +54,25 @@ const getPersisted = (key: string) => {
             }
         }
 
-        // 3. Scan Legacy Keys (Data Recovery Bridge)
-        const baseKeyName = key.replace('s2_stable_', 's2_cache_');
-        for (const ver of LEGACY_VERSIONS) {
-            const suffix = ver ? `_${ver}` : '';
-            const legacyKey = `${baseKeyName}${suffix}`;
-            const legacyData = localStorage.getItem(legacyKey);
-            
-            if (legacyData) {
-                try {
-                    const parsedLegacy = JSON.parse(legacyData);
-                    if (Array.isArray(parsedLegacy) ? parsedLegacy.length > 0 : parsedLegacy) {
-                        console.log(`♻️ Recovered data: ${legacyKey} -> ${key}`);
-                        localStorage.setItem(key, legacyData);
-                        MEM_CACHE[key] = parsedLegacy;
-                        return parsedLegacy;
-                    }
-                } catch (e) {}
+        // Only scan legacy if migration hasn't successfully finished this session
+        if (!MIGRATION_DONE) {
+            const baseKeyName = key.replace('s2_stable_', 's2_cache_');
+            for (const ver of LEGACY_VERSIONS) {
+                const suffix = ver ? `_${ver}` : '';
+                const legacyKey = `${baseKeyName}${suffix}`;
+                const legacyData = localStorage.getItem(legacyKey);
+                
+                if (legacyData) {
+                    try {
+                        const parsedLegacy = JSON.parse(legacyData);
+                        if (Array.isArray(parsedLegacy) ? parsedLegacy.length > 0 : parsedLegacy) {
+                            localStorage.setItem(key, legacyData);
+                            MEM_CACHE[key] = parsedLegacy;
+                            MIGRATION_DONE = true; 
+                            return parsedLegacy;
+                        }
+                    } catch (e) {}
+                }
             }
         }
     } catch (e) {}
@@ -82,35 +81,37 @@ const getPersisted = (key: string) => {
 
 const setPersisted = (key: string, data: any) => {
     MEM_CACHE[key] = data;
-    try { 
-        localStorage.setItem(key, JSON.stringify(data)); 
-    } catch (e) {}
+    try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
 };
 
 /**
- * Fetches data with server-priority but local-resilience.
+ * STALE-WHILE-REVALIDATE PATTERN
+ * Returns local data immediately, updates from server in background.
  */
 const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise<T> => {
-    const freshData = await apiRequest(endpoint);
-    
-    // Use server data if it's not empty
-    if (freshData !== null) {
-        const hasServerData = Array.isArray(freshData) ? freshData.length > 0 : (freshData && Object.keys(freshData).length > 0);
-        if (hasServerData) {
-            setPersisted(key, freshData);
-            return freshData as unknown as T;
-        }
-    }
-
-    // Fallback to local (including recovery)
     const cached = getPersisted(key);
+    
+    // Trigger background sync
+    const syncPromise = apiRequest(endpoint).then(freshData => {
+        if (freshData !== null) {
+            const hasServerData = Array.isArray(freshData) ? freshData.length > 0 : (freshData && Object.keys(freshData).length > 0);
+            if (hasServerData) {
+                setPersisted(key, freshData);
+                return freshData;
+            }
+        }
+        return null;
+    });
+
+    // If we have cache, return it NOW. Don't wait for network.
     if (cached) return cached;
 
-    // Use hardcoded system defaults
-    return fallback;
+    // No cache? We must wait for first load.
+    const result = await syncPromise;
+    return (result as unknown as T) || fallback;
 };
 
-// --- READ OPERATIONS ---
+// --- READ OPERATIONS (Now much faster) ---
 
 export const getProducts = async (): Promise<Product[]> => fetchLive(STABLE_KEYS.PRODUCTS, '/products/all', INITIAL_PRODUCTS);
 
@@ -130,7 +131,7 @@ export const getSiteSettings = async (): Promise<SiteSettings> => {
 
 export const getBrands = async (): Promise<Brand[]> => fetchLive(STABLE_KEYS.BRANDS, '/brands', []);
 
-// --- WRITE OPERATIONS (SYNC LOCAL, ASYNC SERVER) ---
+// --- WRITE OPERATIONS ---
 
 export const saveProduct = async (product: Product): Promise<void> => {
     const current = await getProducts();
@@ -191,19 +192,17 @@ export const getProductBySlug = async (slug: string) => (await getProducts()).fi
 export const getCategoryBySlug = async (slug: string) => (await getCategories()).find(c => c.slug === slug);
 export const getPageBySlug = async (slug: string) => (await getPages()).find(p => p.slug === slug);
 
+// Helper to fetch similar products in the same category
+export const getSimilarProducts = async (product: Product): Promise<Product[]> => {
+    const all = await getProducts();
+    return all.filter(p => p.category === product.category && p.id !== product.id).slice(0, 5);
+};
+
 export const clearAllCache = () => {
     Object.keys(MEM_CACHE).forEach(k => delete MEM_CACHE[k]);
     Object.values(STABLE_KEYS).forEach(k => localStorage.removeItem(k));
-    LEGACY_VERSIONS.forEach(v => {
-        const s = v ? `_${v}` : '';
-        localStorage.removeItem(`s2_cache_products${s}`);
-        localStorage.removeItem(`s2_cache_categories${s}`);
-        localStorage.removeItem(`s2_cache_pages${s}`);
-    });
 };
 
-export const getProductsByCategory = async (categoryName: string) => (await getProducts()).filter(p => p.category === categoryName && p.isActive !== false);
-export const getSimilarProducts = async (product: Product) => (await getProducts()).filter(p => p.category === product.category && p.id !== product.id && p.isActive !== false).slice(0, 5);
 export const formatCurrency = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 export const getOrders = async () => apiRequest('/orders') || [];
 export const createOrder = async (order: any) => apiRequest('/orders', 'POST', order);
