@@ -1,11 +1,10 @@
-
 import React, { useEffect, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 // Fix: Destructure from namespace import with any cast to resolve environment export issues
 const { Link } = ReactRouterDOM as any;
 import { SEO } from '../components/SEO';
 import { FileText, Server, HardDrive, Laptop, Cpu, ArrowRight, CheckCircle, Phone, Truck } from '../components/Icons';
-import { getCategories, getProductsByCategory, getProducts } from '../services/db';
+import { getCategories, getProducts } from '../services/db';
 import { ProductCard } from '../components/ProductCard';
 import { useApp } from '../App';
 import { Category, Product } from '../types';
