@@ -1,7 +1,5 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-// Fix: Destructure from namespace import with any cast to resolve environment export issues
 const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM as any;
 const Router = HashRouter;
 import { Layout } from './components/Layout';
@@ -32,7 +30,7 @@ import { QuoteModal } from './components/QuoteModal';
 import { AuthModal } from './components/AuthModal';
 import { Analytics } from './components/Analytics';
 import { CartItem, Product, User, SiteSettings, Category, Brand, PageContent } from './types';
-import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages } from './services/db';
+import { getSiteSettings, getCategories, getBrands, getPages, clearAllCache } from './services/db';
 
 interface AppContextType {
   cart: CartItem[];
@@ -51,7 +49,7 @@ interface AppContextType {
   openAuthModal: () => void;
   openQuoteModal: (product?: {id: string, name: string, quantity: number}) => void;
   updateSettings: (settings: SiteSettings) => void;
-  refreshGlobalData: () => Promise<void>;
+  refreshGlobalData: (force?: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -64,9 +62,7 @@ export const useApp = () => {
 
 const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { user } = useApp();
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/admin/login" />;
-  }
+  if (!user || user.role !== 'admin') return <Navigate to="/admin/login" />;
   return children;
 };
 
@@ -75,23 +71,19 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   
-  // App Data State
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [pages, setPages] = useState<PageContent[]>([]);
   const [settings, setSettings] = useState<SiteSettings>({
-    id: 'settings',
-    supportPhone: '...',
-    supportEmail: '...',
-    address: '...',
-    whatsappNumber: ''
+    id: 'settings', supportPhone: '...', supportEmail: '...', address: '...', whatsappNumber: ''
   });
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
-  const refreshGlobalData = async () => {
+  const refreshGlobalData = async (force: boolean = false) => {
+    if (force) clearAllCache();
     try {
       const [s, c, b, p] = await Promise.all([
         getSiteSettings(),
@@ -123,31 +115,15 @@ const App: React.FC = () => {
     });
   };
 
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.id !== id));
-  };
-
-  const clearCart = () => setCart([]);
-  const checkout = () => alert('Use checkout page');
-
-  const openQuoteModal = (product?: {id: string, name: string, quantity: number}) => {
-    setQuoteProduct(product || null);
-    setIsQuoteOpen(true);
-  };
-
-  const updateSettings = async (newSettings: SiteSettings) => {
-    await saveSiteSettings(newSettings);
-    setSettings(newSettings);
-  };
-
   return (
     <AppContext.Provider value={{ 
       cart, user, settings, categories, brands, pages, isDataLoaded,
-      addToCart, removeFromCart, clearCart, checkout,
+      addToCart, removeFromCart: (id) => setCart(prev => prev.filter(i => i.id !== id)),
+      clearCart: () => setCart([]), checkout: () => {},
       login: setUser, logout: () => setUser(null),
       openAuthModal: () => setIsAuthOpen(true),
-      openQuoteModal,
-      updateSettings,
+      openQuoteModal: (p) => { setQuoteProduct(p || null); setIsQuoteOpen(true); },
+      updateSettings: (s) => setSettings(s),
       refreshGlobalData
     }}>
       <Router>
