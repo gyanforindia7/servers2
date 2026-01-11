@@ -65,6 +65,14 @@ const setPersisted = (key: string, data: any) => {
     try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
 };
 
+export const clearAllCache = () => {
+    // Clear Memory
+    Object.keys(MEM_CACHE).forEach(key => delete MEM_CACHE[key]);
+    // Clear LocalStorage s2_cache keys
+    Object.values(CACHE_KEYS).forEach(key => localStorage.removeItem(key));
+    console.log('Cache cleared successfully.');
+};
+
 export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency', currency: 'INR', maximumFractionDigits: 0
@@ -145,11 +153,6 @@ export const getCategoryBySlug = async (slug: string): Promise<Category | undefi
     return cats.find(c => c.slug === slug);
 };
 
-export const getCategoryHierarchy = async (): Promise<Category[]> => {
-    const all = await getCategories();
-    return all.filter(c => !c.parentId);
-};
-
 // --- Settings ---
 export const getSiteSettings = async (): Promise<SiteSettings> => {
     const defaultSettings: SiteSettings = {
@@ -195,7 +198,6 @@ export const deleteQuote = async (id: string): Promise<void> => {
     apiRequest(`/quotes/${id}`, 'DELETE');
 };
 
-// --- Remaining API methods use instant response pattern ---
 export const getPages = async (): Promise<PageContent[]> => fetchWithCache(CACHE_KEYS.PAGES, '/pages', []);
 export const savePage = async (page: PageContent): Promise<void> => {
     const current = await getPages();
