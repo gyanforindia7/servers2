@@ -55,9 +55,9 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
         
-        // Ensure path starts with /api
-        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-        const finalUrl = `${API_BASE}${cleanEndpoint}${method === 'GET' ? (cleanEndpoint.includes('?') ? '&' : '?') + '_t=' + Date.now() : ''}`;
+        // Sanitize endpoint to avoid double slashes
+        const cleanPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        const finalUrl = `${API_BASE}${cleanPath}${method === 'GET' ? (cleanPath.includes('?') ? '&' : '?') + '_t=' + Date.now() : ''}`;
 
         const payload = body ? deepCleanForServer(body) : undefined;
 
@@ -72,7 +72,8 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-            console.error(`[DB Service] Error [${method} ${endpoint}]: Status ${response.status}`);
+            const error = await response.json().catch(() => ({}));
+            console.error(`[DB Service] Error [${method} ${endpoint}]: Status ${response.status}`, error);
             return null;
         }
 
@@ -152,7 +153,9 @@ export const getBrands = async (): Promise<Brand[]> => fetchLive(STABLE_KEYS.BRA
 
 export const saveProduct = async (product: Product): Promise<void> => {
     lastWriteTimestamp = Date.now();
-    const result = await apiRequest('/products', 'POST', product);
+    const endpoint = product.id ? `/products/${product.id}` : '/products';
+    const method = product.id ? 'PUT' : 'POST';
+    const result = await apiRequest(endpoint, method, product);
     if (result) {
         const current = getCacheSync<Product[]>(STABLE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
         const updatedList = [...current.filter(p => p.id !== result.id), result];
@@ -164,7 +167,9 @@ export const saveProduct = async (product: Product): Promise<void> => {
 
 export const saveCategory = async (cat: Category): Promise<void> => {
     lastWriteTimestamp = Date.now();
-    const result = await apiRequest('/categories', 'POST', cat);
+    const endpoint = cat.id ? `/categories/${cat.id}` : '/categories';
+    const method = cat.id ? 'PUT' : 'POST';
+    const result = await apiRequest(endpoint, method, cat);
     if (result) {
         const current = getCacheSync<Category[]>(STABLE_KEYS.CATEGORIES, getCategoryDefaults());
         setPersisted(STABLE_KEYS.CATEGORIES, [...current.filter(c => c.id !== result.id), result]);
