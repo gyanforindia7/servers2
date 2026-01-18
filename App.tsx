@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM as any;
@@ -30,7 +31,7 @@ import { QuoteModal } from './components/QuoteModal';
 import { AuthModal } from './components/AuthModal';
 import { Analytics } from './components/Analytics';
 import { CartItem, Product, User, SiteSettings, Category, Brand, PageContent } from './types';
-import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages, getCacheSync, STABLE_KEYS, getCategoryDefaults } from './services/db';
+import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages, getCacheSync, STABLE_KEYS, getCategoryDefaults, getProducts } from './services/db';
 
 interface AppContextType {
   cart: CartItem[];
@@ -94,8 +95,10 @@ export const App: React.FC = () => {
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
   const refreshGlobalData = async () => {
+    // These triggers ensure the background sync happens even if local storage is populated
     getSiteSettings().then(setSettings);
     getCategories().then(setCategories);
+    getProducts(); // Background sync products list
     
     setTimeout(() => {
         getBrands().then(setBrands);
