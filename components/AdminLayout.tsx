@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 // Fix: Destructure from namespace import with any cast to resolve environment export issues
-const { Link, useLocation } = ReactRouterDOM as any;
-import { LayoutDashboard, Box, FileText, Tag, Briefcase, Package, MessageSquare, Settings, Ticket, Newspaper, Menu, X } from './Icons';
+const { Link, useLocation, useNavigate } = ReactRouterDOM as any;
+import { LayoutDashboard, Box, FileText, Tag, Briefcase, Package, MessageSquare, Settings, Ticket, Newspaper, Menu, X, LogOut } from './Icons';
 import { useApp } from '../App';
 
 export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
-  const { user } = useApp();
+  const navigate = useNavigate();
+  const { user, logout } = useApp();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const navItems = [
@@ -26,6 +27,11 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   if (!user || user.role !== 'admin') {
     return null;
   }
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 transition-colors">
@@ -81,6 +87,12 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                 <h2 className="text-lg font-bold truncate">Management</h2>
             </div>
             <div className="flex items-center gap-4">
+                <button 
+                  onClick={handleLogout}
+                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg border border-red-100 transition-colors"
+                >
+                  <LogOut size={14} /> Logout
+                </button>
                 <div className="hidden sm:block text-right">
                     <div className="text-xs font-bold">{user.name}</div>
                     <div className="text-[10px] text-slate-500 uppercase tracking-widest">System Admin</div>
