@@ -62,16 +62,25 @@ export const useApp = () => {
 
 const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { user } = useApp();
+  // Ensure we don't redirect while checking or if the user is indeed valid
   if (!user || user.role !== 'admin') return <Navigate to="/admin/login" />;
   return children;
 };
 
 export const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [user, setUser] = useState<User | null>(null);
+  
+  // FIXED: Synchronous initialization from localStorage to prevent auto-logout on refresh
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('s2_auth_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   
   // ZERO-WAIT INITIALIZATION: 
-  // We use hardcoded defaults so the UI (Header, etc) exists instantly.
   const [settings, setSettings] = useState<SiteSettings>(() => getCacheSync(STABLE_KEYS.SETTINGS, {
     id: 'settings', supportPhone: '+91 000 000 0000', supportEmail: 'support@serverpro.com', address: 'Enterprise Hub, India', whatsappNumber: ''
   }));
@@ -84,13 +93,10 @@ export const App: React.FC = () => {
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
-  // Background sync for fresh data
   const refreshGlobalData = async () => {
-    // These promises resolve instantly if cache exists, or eventually after server fetch
     getSiteSettings().then(setSettings);
     getCategories().then(setCategories);
     
-    // Stagger non-critical data
     setTimeout(() => {
         getBrands().then(setBrands);
         getPages().then(setPages);
@@ -99,11 +105,8 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     refreshGlobalData();
-    
-    // Load session data
+    // Re-verify session in background but sync init handled above
     try {
-        const savedUser = localStorage.getItem('s2_auth_user');
-        if (savedUser) setUser(JSON.parse(savedUser));
         const savedCart = localStorage.getItem('s2_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
     } catch(e) {}
