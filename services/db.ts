@@ -20,7 +20,7 @@ export const STABLE_KEYS = {
 
 /**
  * RECURSIVE Deep Clean
- * Removes _id and __v from all nested levels of an object.
+ * Removes _id and __v from all nested levels of an object to avoid Mongoose conflicts.
  */
 const deepCleanForServer = (obj: any): any => {
     if (Array.isArray(obj)) {
@@ -52,9 +52,9 @@ export const getCategoryDefaults = (): Category[] => {
 const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) => {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000); 
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
         
-        // Cache busting ONLY for GET requests
+        // Cache busting only for GET
         const urlSeparator = endpoint.includes('?') ? '&' : '?';
         const finalUrl = method === 'GET' 
             ? `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}${urlSeparator}_t=${Date.now()}`
@@ -71,7 +71,8 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-            console.error(`API Error [${method} ${endpoint}]: Status ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            console.error(`API Error [${method} ${endpoint}]: Status ${response.status}`, errorData);
             return null;
         }
 
@@ -114,9 +115,8 @@ const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise
     const cached = getCacheSync(key, null);
     
     const syncWithServer = async (): Promise<T | null> => {
-        // PREVENT RACE CONDITION: If we just saved something, wait 10s before background syncing
-        // This ensures the DB has time to reflect the new state to the GET endpoint.
-        if (Date.now() - lastWriteTimestamp < 10000) {
+        // PREVENT RACE CONDITION: If we just saved something, wait 15s before background syncing
+        if (Date.now() - lastWriteTimestamp < 15000) {
             return null;
         }
 
@@ -129,7 +129,7 @@ const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise
     };
 
     if (cached) {
-        syncWithServer(); // Try syncing in background
+        syncWithServer(); 
         return cached as unknown as T;
     }
 
@@ -152,28 +152,24 @@ export const getBrands = async (): Promise<Brand[]> => fetchLive(STABLE_KEYS.BRA
 
 export const saveProduct = async (product: Product): Promise<void> => {
     lastWriteTimestamp = Date.now();
-    const idToUse = product.id || `p-${Date.now()}`;
-    const cleanProduct = { ...product, id: idToUse };
-    
-    const result = await apiRequest(product.id ? `/products/${idToUse}` : '/products', product.id ? 'PUT' : 'POST', cleanProduct);
-    
+    const result = await apiRequest('/products', 'POST', product);
     if (result) {
         const current = getCacheSync<Product[]>(STABLE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
-        // Use result from server to ensure we have the correct DB representation
-        const updatedList = [...current.filter(p => p.id !== idToUse), result];
+        const updatedList = [...current.filter(p => p.id !== result.id), result];
         setPersisted(STABLE_KEYS.PRODUCTS, updatedList);
     } else {
-        throw new Error("Server communication failed. Change not saved.");
+        throw new Error("Server failed to save product.");
     }
 };
 
 export const saveCategory = async (cat: Category): Promise<void> => {
     lastWriteTimestamp = Date.now();
-    const idToUse = cat.id || `cat-${Date.now()}`;
-    const result = await apiRequest('/categories', 'POST', { ...cat, id: idToUse });
+    const result = await apiRequest('/categories', 'POST', cat);
     if (result) {
         const current = getCacheSync<Category[]>(STABLE_KEYS.CATEGORIES, getCategoryDefaults());
-        setPersisted(STABLE_KEYS.CATEGORIES, [...current.filter(c => c.id !== idToUse), result]);
+        setPersisted(STABLE_KEYS.CATEGORIES, [...current.filter(c => c.id !== result.id), result]);
+    } else {
+        throw new Error("Server failed to save category.");
     }
 };
 
@@ -235,10 +231,42 @@ export const deleteCoupon = async (id: string) => { lastWriteTimestamp = Date.no
 export const cancelOrder = (id: string, reason: string) => apiRequest(`/orders/${id}/cancel`, 'POST', { reason });
 export const getUserOrders = async (userId: string) => (await getOrders()).filter((o: any) => o.userId === userId);
 export const getOrderById = async (id: string) => (await getOrders()).find((o: any) => o.id === id);
-export const saveSiteSettings = async (settings: SiteSettings) => { lastWriteTimestamp = Date.now(); const res = await apiRequest('/settings', 'POST', settings); if (res) setPersisted(STABLE_KEYS.SETTINGS, res); };
-export const saveBrand = async (brand: Brand) => { lastWriteTimestamp = Date.now(); const result = await apiRequest('/brands', 'POST', brand); if (result) { const current = getCacheSync<Brand[]>(STABLE_KEYS.BRANDS, []); setPersisted(STABLE_KEYS.BRANDS, [...current.filter(b => b.id !== brand.id), result]); } };
-export const deleteBrand = async (id: string) => { lastWriteTimestamp = Date.now(); const result = await apiRequest(`/brands/${id}`, 'DELETE'); if (result) { setPersisted(STABLE_KEYS.BRANDS, getCacheSync<Brand[]>(STABLE_KEYS.BRANDS, []).filter(b => b.id !== id)); } };
-export const savePage = async (page: PageContent) => { lastWriteTimestamp = Date.now(); const result = await apiRequest('/pages', 'POST', page); if (result) { const current = getCacheSync<PageContent[]>(STABLE_KEYS.PAGES, []); setPersisted(STABLE_KEYS.PAGES, [...current.filter(p => p.id !== page.id), result]); } };
-export const deletePage = async (id: string) => { lastWriteTimestamp = Date.now(); const result = await apiRequest(`/pages/${id}`, 'DELETE'); if (result) { setPersisted(STABLE_KEYS.PAGES, getCacheSync<PageContent[]>(STABLE_KEYS.PAGES, []).filter(p => p.id !== id)); } };
+
+export const saveSiteSettings = async (settings: SiteSettings) => { 
+    lastWriteTimestamp = Date.now(); 
+    const res = await apiRequest('/settings', 'POST', settings); 
+    if (res) setPersisted(STABLE_KEYS.SETTINGS, res); 
+};
+
+export const saveBrand = async (brand: Brand) => { 
+    lastWriteTimestamp = Date.now(); 
+    const result = await apiRequest('/brands', 'POST', brand); 
+    if (result) { 
+        const current = getCacheSync<Brand[]>(STABLE_KEYS.BRANDS, []); 
+        setPersisted(STABLE_KEYS.BRANDS, [...current.filter(b => b.id !== result.id), result]); 
+    } 
+};
+
+export const deleteBrand = async (id: string) => { 
+    lastWriteTimestamp = Date.now(); 
+    const result = await apiRequest(`/brands/${id}`, 'DELETE'); 
+    if (result) { setPersisted(STABLE_KEYS.BRANDS, getCacheSync<Brand[]>(STABLE_KEYS.BRANDS, []).filter(b => b.id !== id)); } 
+};
+
+export const savePage = async (page: PageContent) => { 
+    lastWriteTimestamp = Date.now(); 
+    const result = await apiRequest('/pages', 'POST', page); 
+    if (result) { 
+        const current = getCacheSync<PageContent[]>(STABLE_KEYS.PAGES, []); 
+        setPersisted(STABLE_KEYS.PAGES, [...current.filter(p => p.id !== result.id), result]); 
+    } 
+};
+
+export const deletePage = async (id: string) => { 
+    lastWriteTimestamp = Date.now(); 
+    const result = await apiRequest(`/pages/${id}`, 'DELETE'); 
+    if (result) { setPersisted(STABLE_KEYS.PAGES, getCacheSync<PageContent[]>(STABLE_KEYS.PAGES, []).filter(p => p.id !== id)); } 
+};
+
 export const getPageBySlug = async (slug: string) => (await getPages()).find(p => p.slug === slug);
 export const clearAllCache = () => { Object.keys(MEM_CACHE).forEach(k => delete MEM_CACHE[k]); Object.values(STABLE_KEYS).forEach(k => localStorage.removeItem(k)); };
