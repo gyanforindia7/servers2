@@ -30,7 +30,7 @@ import { QuoteModal } from './components/QuoteModal';
 import { AuthModal } from './components/AuthModal';
 import { Analytics } from './components/Analytics';
 import { CartItem, Product, User, SiteSettings, Category, Brand, PageContent } from './types';
-import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages, getCacheSync, STABLE_KEYS } from './services/db';
+import { getSiteSettings, saveSiteSettings, getCategories, getBrands, getPages, getCacheSync, STABLE_KEYS, getCategoryDefaults } from './services/db';
 
 interface AppContextType {
   cart: CartItem[];
@@ -70,11 +70,12 @@ export const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
   
-  // IMMEDIATE BOOT: Initialize state synchronously from cache
+  // ZERO-WAIT INITIALIZATION: 
+  // We use hardcoded defaults so the UI (Header, etc) exists instantly.
   const [settings, setSettings] = useState<SiteSettings>(() => getCacheSync(STABLE_KEYS.SETTINGS, {
-    id: 'settings', supportPhone: '...', supportEmail: '...', address: '...', whatsappNumber: ''
+    id: 'settings', supportPhone: '+91 000 000 0000', supportEmail: 'support@serverpro.com', address: 'Enterprise Hub, India', whatsappNumber: ''
   }));
-  const [categories, setCategories] = useState<Category[]>(() => getCacheSync(STABLE_KEYS.CATEGORIES, []));
+  const [categories, setCategories] = useState<Category[]>(() => getCacheSync(STABLE_KEYS.CATEGORIES, getCategoryDefaults()));
   const [brands, setBrands] = useState<Brand[]>(() => getCacheSync(STABLE_KEYS.BRANDS, []));
   const [pages, setPages] = useState<PageContent[]>(() => getCacheSync(STABLE_KEYS.PAGES, []));
   const [isDataLoaded, setIsDataLoaded] = useState(true);
@@ -83,23 +84,23 @@ export const App: React.FC = () => {
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
   const [quoteProduct, setQuoteProduct] = useState<{id: string, name: string, quantity: number} | null>(null);
 
-  // NON-BLOCKING BACKGROUND SYNC
+  // Background sync for fresh data
   const refreshGlobalData = async () => {
-    // We don't 'await' these here because getX() returns cache immediately and syncs in background
+    // These promises resolve instantly if cache exists, or eventually after server fetch
     getSiteSettings().then(setSettings);
     getCategories().then(setCategories);
     
-    // Slight stagger for secondary data to prioritize main content rendering
+    // Stagger non-critical data
     setTimeout(() => {
         getBrands().then(setBrands);
         getPages().then(setPages);
-    }, 500);
+    }, 100);
   };
 
   useEffect(() => {
     refreshGlobalData();
     
-    // Load user and cart from session
+    // Load session data
     try {
         const savedUser = localStorage.getItem('s2_auth_user');
         if (savedUser) setUser(JSON.parse(savedUser));
