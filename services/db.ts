@@ -1,3 +1,4 @@
+
 import { Product, Order, User, SiteSettings, Category, Brand, PageContent, ContactMessage, QuoteRequest, Coupon, BlogPost, INITIAL_CATEGORY_NAMES } from '../types';
 import { INITIAL_PRODUCTS } from '../constants';
 
@@ -6,9 +7,9 @@ import { INITIAL_PRODUCTS } from '../constants';
  * Optimized for real-time saving and cross-device consistency.
  */
 
-const API_URL = '/api';
+const API_BASE = '/api';
 const MEM_CACHE: Record<string, any> = {};
-let lastWriteTimestamp = 0; // Tracks last change to avoid stale background syncs
+let lastWriteTimestamp = 0; 
 
 export const STABLE_KEYS = {
     PRODUCTS: 's2_stable_products',
@@ -20,7 +21,7 @@ export const STABLE_KEYS = {
 
 /**
  * RECURSIVE Deep Clean
- * Removes _id and __v from all nested levels of an object to avoid Mongoose conflicts.
+ * Removes _id and __v from all nested levels.
  */
 const deepCleanForServer = (obj: any): any => {
     if (Array.isArray(obj)) {
@@ -52,15 +53,15 @@ export const getCategoryDefaults = (): Category[] => {
 const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) => {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         
-        // Cache busting only for GET
-        const urlSeparator = endpoint.includes('?') ? '&' : '?';
-        const finalUrl = method === 'GET' 
-            ? `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}${urlSeparator}_t=${Date.now()}`
-            : `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+        // Ensure path starts with /api
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        const finalUrl = `${API_BASE}${cleanEndpoint}${method === 'GET' ? (cleanEndpoint.includes('?') ? '&' : '?') + '_t=' + Date.now() : ''}`;
 
         const payload = body ? deepCleanForServer(body) : undefined;
+
+        console.debug(`[DB Service] Fetching: ${method} ${finalUrl}`);
 
         const response = await fetch(finalUrl, { 
             method, 
@@ -71,8 +72,7 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error(`API Error [${method} ${endpoint}]: Status ${response.status}`, errorData);
+            console.error(`[DB Service] Error [${method} ${endpoint}]: Status ${response.status}`);
             return null;
         }
 
@@ -82,7 +82,7 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
         }
         return { success: true };
     } catch (err) {
-        console.error(`Network Failure [${method} ${endpoint}]:`, err);
+        console.error(`[DB Service] Network Failure [${method} ${endpoint}]:`, err);
         return null;
     }
 };
@@ -115,7 +115,7 @@ const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise
     const cached = getCacheSync(key, null);
     
     const syncWithServer = async (): Promise<T | null> => {
-        // PREVENT RACE CONDITION: If we just saved something, wait 15s before background syncing
+        // PREVENT RACE CONDITION: Wait 15s after any write before syncing background GETs
         if (Date.now() - lastWriteTimestamp < 15000) {
             return null;
         }
@@ -158,7 +158,7 @@ export const saveProduct = async (product: Product): Promise<void> => {
         const updatedList = [...current.filter(p => p.id !== result.id), result];
         setPersisted(STABLE_KEYS.PRODUCTS, updatedList);
     } else {
-        throw new Error("Server failed to save product.");
+        throw new Error("Product update failed at server level.");
     }
 };
 
@@ -169,7 +169,7 @@ export const saveCategory = async (cat: Category): Promise<void> => {
         const current = getCacheSync<Category[]>(STABLE_KEYS.CATEGORIES, getCategoryDefaults());
         setPersisted(STABLE_KEYS.CATEGORIES, [...current.filter(c => c.id !== result.id), result]);
     } else {
-        throw new Error("Server failed to save category.");
+        throw new Error("Category update failed at server level.");
     }
 };
 
