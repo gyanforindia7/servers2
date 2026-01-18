@@ -71,6 +71,14 @@ export const AdminProducts: React.FC = () => {
     refresh();
   };
 
+  const handleDeleteProduct = async (id: string) => {
+    if (window.confirm('Are you sure you want to permanently delete this product?')) {
+      await deleteProduct(id);
+      await refreshGlobalData();
+      refresh();
+    }
+  };
+
   const handleAIGenerate = async () => {
     if (!formData.name || !formData.brand) { alert("Enter product name and brand first."); return; }
     setIsGenerating(true);
@@ -165,7 +173,10 @@ export const AdminProducts: React.FC = () => {
                                 <td className="p-4 font-bold dark:text-slate-300">{formatCurrency(p.price)}</td>
                                 <td className="p-4"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${p.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.isActive ? 'Active' : 'Draft'}</span></td>
                                 <td className="p-4 text-right">
-                                    <button onClick={() => switchToForm(p)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded transition-all"><Settings size={16}/></button>
+                                    <div className="flex justify-end gap-1">
+                                      <button onClick={() => switchToForm(p)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded transition-all" title="Edit"><Settings size={16}/></button>
+                                      <button onClick={() => handleDeleteProduct(p.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-slate-700 rounded transition-all" title="Delete"><Trash2 size={16}/></button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -246,47 +257,47 @@ export const AdminProducts: React.FC = () => {
               )}
 
               {activeTab === 'specs' && (
-                  <div className="space-y-8 animate-in fade-in">
-                      <div>
-                          <label className="block text-xs font-bold mb-2 uppercase text-slate-400 tracking-widest">Main Featured Image</label>
-                          <ImageUploader currentImage={formData.imageUrl} onImageChange={u => setFormData({...formData, imageUrl: u})} />
-                      </div>
-                      
-                      <div>
-                          <label className="block text-xs font-bold mb-4 uppercase text-slate-400 tracking-widest">Photo Gallery (Multi-Image)</label>
-                          <div className="flex gap-2 mb-4">
-                              <input placeholder="Paste Image URL" className="flex-1 p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={galleryUrl} onChange={e => setGalleryUrl(e.target.value)}/>
-                              <button type="button" onClick={addGalleryImage} className="bg-slate-900 text-white px-6 rounded-lg font-bold flex items-center gap-2"><Plus size={18}/> Add</button>
-                          </div>
-                          <div className="grid grid-cols-4 md:grid-cols-6 gap-4">
-                              {(formData.imageUrls || []).map((url, idx) => (
-                                  <div key={idx} className="relative aspect-square rounded-xl border dark:border-slate-800 overflow-hidden group">
-                                      <img src={url} alt="" className="w-full h-full object-cover" />
-                                      <button onClick={() => removeGalleryImage(idx)} className="absolute inset-0 bg-red-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <Trash2 size={20} />
-                                      </button>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
+                <div className="space-y-8 animate-in fade-in">
+                    <div>
+                        <label className="block text-xs font-bold mb-2 uppercase text-slate-400 tracking-widest">Main Featured Image</label>
+                        <ImageUploader currentImage={formData.imageUrl} onImageChange={u => setFormData({...formData, imageUrl: u})} />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-xs font-bold mb-4 uppercase text-slate-400 tracking-widest">Photo Gallery (Multi-Image)</label>
+                        <div className="flex gap-2 mb-4">
+                            <input placeholder="Paste Image URL" className="flex-1 p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={galleryUrl} onChange={e => setGalleryUrl(e.target.value)}/>
+                            <button type="button" onClick={addGalleryImage} className="bg-slate-900 text-white px-6 rounded-lg font-bold flex items-center gap-2"><Plus size={18}/> Add</button>
+                        </div>
+                        <div className="grid grid-cols-4 md:grid-cols-6 gap-4">
+                            {(formData.imageUrls || []).map((url, idx) => (
+                                <div key={idx} className="relative aspect-square rounded-xl border dark:border-slate-800 overflow-hidden group">
+                                    <img src={url} alt="" className="w-full h-full object-cover" />
+                                    <button onClick={() => removeGalleryImage(idx)} className="absolute inset-0 bg-red-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Trash2 size={20} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
-                      <div>
-                          <label className="block text-xs font-bold mb-4 uppercase text-slate-400 tracking-widest">Technical Specifications</label>
-                          <div className="flex gap-2 mb-4">
-                              <input placeholder="Key (e.g. CPU)" className="flex-1 p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={specInput.key} onChange={e => setSpecInput({...specInput, key: e.target.value})}/>
-                              <input placeholder="Value (e.g. Xeon Gold)" className="flex-1 p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={specInput.value} onChange={e => setSpecInput({...specInput, value: e.target.value})}/>
-                              <button type="button" onClick={addSpec} className="bg-slate-900 text-white px-6 rounded-lg font-bold">Add Spec</button>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {Object.entries(formData.specs).map(([k,v]) => (
-                                  <div key={k} className="p-3 border rounded-lg dark:border-slate-800 text-sm flex justify-between items-center dark:text-slate-300 bg-slate-50 dark:bg-slate-800/30">
-                                      <span><strong className="text-slate-400 uppercase text-[10px] mr-2">{k}:</strong> {v}</span>
-                                      <button onClick={() => {const s={...formData.specs}; delete s[k]; setFormData({...formData, specs: s})}} className="text-red-500 hover:bg-red-50 p-1 rounded">×</button>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                  </div>
+                    <div>
+                        <label className="block text-xs font-bold mb-4 uppercase text-slate-400 tracking-widest">Technical Specifications</label>
+                        <div className="flex gap-2 mb-4">
+                            <input placeholder="Key (e.g. CPU)" className="flex-1 p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={specInput.key} onChange={e => setSpecInput({...specInput, key: e.target.value})}/>
+                            <input placeholder="Value (e.g. Xeon Gold)" className="flex-1 p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={specInput.value} onChange={e => setSpecInput({...specInput, value: e.target.value})}/>
+                            <button type="button" onClick={addSpec} className="bg-slate-900 text-white px-6 rounded-lg font-bold">Add Spec</button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {Object.entries(formData.specs).map(([k,v]) => (
+                                <div key={k} className="p-3 border rounded-lg dark:border-slate-800 text-sm flex justify-between items-center dark:text-slate-300 bg-slate-50 dark:bg-slate-800/30">
+                                    <span><strong className="text-slate-400 uppercase text-[10px] mr-2">{k}:</strong> {v}</span>
+                                    <button onClick={() => {const s={...formData.specs}; delete s[k]; setFormData({...formData, specs: s})}} className="text-red-500 hover:bg-red-50 p-1 rounded">×</button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
               )}
 
               {activeTab === 'seo' && (
@@ -327,6 +338,7 @@ export const AdminProducts: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-xs font-bold mb-1 uppercase text-slate-400 tracking-widest">MPN (Manufacturer Part Number)</label>
+                            {/* Fix: Property name should be 'mpn', not 'gsync' */}
                             <input type="text" className="w-full p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={formData.gmc?.mpn} onChange={e => setFormData({...formData, gmc: {...formData.gmc!, mpn: e.target.value}})} />
                         </div>
                         <div className="md:col-span-2">
