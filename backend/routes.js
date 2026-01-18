@@ -11,8 +11,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
  * RECURSIVE DEEP SANITIZE
- * Removes _id and __v from the top level and all nested children.
- * This is vital to prevent Mongoose from failing updates due to immutable fields.
+ * Strips _id and __v from any depth to prevent Mongoose "Immutable Field" errors.
  */
 const deepSanitize = (obj) => {
     if (Array.isArray(obj)) {
@@ -29,7 +28,32 @@ const deepSanitize = (obj) => {
     return obj;
 };
 
-// AI Proxy Routes
+/**
+ * UNIFIED UPSERT HANDLER
+ * Ensures every save operation is clean, handles IDs correctly, and avoids unique index collisions.
+ */
+const handleUpsert = async (Model, req, res, queryField = 'id') => {
+    try {
+        const data = deepSanitize(req.body);
+        
+        // Ensure we have a valid identifier to avoid duplicate index issues with empty strings
+        if (!data[queryField] || data[queryField] === "") {
+            data[queryField] = `${Model.modelName.toLowerCase().substring(0,1)}-${Date.now()}`;
+        }
+
+        const result = await Model.findOneAndUpdate(
+            { [queryField]: data[queryField] },
+            data,
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        res.json(result);
+    } catch (err) {
+        console.error(`Save Error [${Model.modelName}]:`, err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// --- AI Proxy Routes ---
 router.post('/ai/description', async (req, res) => {
     try {
         const { productName, brand, category } = req.body;
@@ -53,57 +77,32 @@ router.post('/ai/seo', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "AI Error" }); }
 });
 
-// Products Routes
+// --- Entities Routes ---
+
+// Products
 router.get('/products/all', async (req, res) => {
     try {
       const products = await Product.find({}).sort({ updatedAt: -1 }).lean();
       res.json(products || []);
     } catch (err) { res.status(500).json([]); }
 });
-
-router.post('/products', async (req, res) => {
-  try {
-    const data = deepSanitize(req.body);
-    if (!data.id) data.id = `p-${Date.now()}`;
-    const newProduct = await Product.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true });
-    res.json(newProduct);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-router.put('/products/:id', async (req, res) => {
-    try {
-        const data = deepSanitize(req.body);
-        const updated = await Product.findOneAndUpdate({ id: req.params.id }, data, { new: true });
-        res.json(updated);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
+router.post('/products', (req, res) => handleUpsert(Product, req, res));
+router.put('/products/:id', (req, res) => handleUpsert(Product, req, res));
 router.delete('/products/:id', async (req, res) => {
     try {
-        const result = await Product.deleteOne({ id: req.params.id });
-        if (result.deletedCount === 0 && mongoose.Types.ObjectId.isValid(req.params.id)) {
-            await Product.deleteOne({ _id: req.params.id });
-        }
+        await Product.deleteOne({ id: req.params.id });
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Category Routes
+// Categories
 router.get('/categories', async (req, res) => {
     try {
         const cats = await Category.find({}).sort({ sortOrder: 1 }).lean();
         res.json(cats || []);
     } catch (err) { res.status(500).json([]); }
 });
-
-router.post('/categories', async (req, res) => {
-    try {
-        const data = deepSanitize(req.body);
-        const cat = await Category.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true });
-        res.json(cat);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
+router.post('/categories', (req, res) => handleUpsert(Category, req, res));
 router.delete('/categories/:id', async (req, res) => {
     try {
         await Category.deleteOne({ id: req.params.id });
@@ -111,14 +110,9 @@ router.delete('/categories/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Brand Routes
+// Brands
 router.get('/brands', async (req, res) => { try { res.json(await Brand.find({}).lean() || []); } catch { res.json([]); } });
-router.post('/brands', async (req, res) => { 
-    try { 
-        const data = deepSanitize(req.body);
-        res.json(await Brand.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true })); 
-    } catch { res.status(500).json({}); } 
-});
+router.post('/brands', (req, res) => handleUpsert(Brand, req, res));
 router.delete('/brands/:id', async (req, res) => { try { await Brand.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
 // Site Settings
@@ -131,63 +125,40 @@ router.get('/settings', async (req, res) => {
         res.json(settings);
     } catch (err) { res.status(500).json({}); }
 });
-
-router.post('/settings', async (req, res) => {
-    try {
-        const data = deepSanitize(req.body);
-        const settings = await Settings.findOneAndUpdate({ id: 'settings' }, data, { upsert: true, new: true });
-        res.json(settings);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
+router.post('/settings', (req, res) => handleUpsert(Settings, req, res));
 
 // CMS Pages
 router.get('/pages', async (req, res) => { try { res.json(await Page.find({}).sort({ sortOrder: 1 }).lean() || []); } catch { res.json([]); } });
-router.post('/pages', async (req, res) => { 
-    try { 
-        const data = deepSanitize(req.body);
-        res.json(await Page.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true })); 
-    } catch { res.status(500).json({}); } 
-});
+router.post('/pages', (req, res) => handleUpsert(Page, req, res));
 router.delete('/pages/:id', async (req, res) => { try { await Page.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
 // Blog Posts
 router.get('/blog', async (req, res) => { try { res.json(await BlogPost.find({}).sort({ date: -1 }).lean() || []); } catch { res.json([]); } });
-router.post('/blog', async (req, res) => { 
-    try { 
-        const data = deepSanitize(req.body);
-        res.json(await BlogPost.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true })); 
-    } catch { res.status(500).json({}); } 
-});
+router.post('/blog', (req, res) => handleUpsert(BlogPost, req, res));
 router.delete('/blog/:id', async (req, res) => { try { await BlogPost.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
+
+// Coupons
+router.get('/coupons', async (req, res) => { try { res.json(await Coupon.find({}).lean() || []); } catch { res.json([]); } });
+router.post('/coupons', (req, res) => handleUpsert(Coupon, req, res));
+router.delete('/coupons/:id', async (req, res) => { try { await Coupon.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
 // Orders
 router.get('/orders', async (req, res) => { try { res.json(await Order.find({}).sort({ createdAt: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/orders', async (req, res) => { try { res.json(await new Order({ ...req.body, id: `ORD-${Date.now()}` }).save()); } catch { res.status(500).json({}); } });
-router.put('/orders/:id', async (req, res) => { try { res.json(await Order.findOneAndUpdate({ id: req.params.id }, deepSanitize(req.body), { new: true })); } catch { res.status(500).json({}); } });
+router.put('/orders/:id', (req, res) => handleUpsert(Order, req, res));
 router.delete('/orders/:id', async (req, res) => { try { await Order.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
-// Quotes
+// Users
+router.get('/users', async (req, res) => { try { res.json(await User.find({}).lean() || []); } catch { res.json([]); } });
+router.post('/users', (req, res) => handleUpsert(User, req, res, 'email'));
+
+// Quotes & Contact
 router.get('/quotes', async (req, res) => { try { res.json(await Quote.find({}).sort({ createdAt: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/quotes', async (req, res) => { try { res.json(await new Quote({ ...req.body, id: `QT-${Date.now()}`, date: new Date() }).save()); } catch { res.status(500).json({}); } });
 router.delete('/quotes/:id', async (req, res) => { try { await Quote.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
-// Messages
 router.get('/contact', async (req, res) => { try { res.json(await Contact.find({}).sort({ createdAt: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/contact', async (req, res) => { try { res.json(await new Contact({ ...req.body, id: `MSG-${Date.now()}`, date: new Date() }).save()); } catch { res.status(500).json({}); } });
 router.delete('/contact/:id', async (req, res) => { try { await Contact.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
-
-// Coupons
-router.get('/coupons', async (req, res) => { try { res.json(await Coupon.find({}).lean() || []); } catch { res.json([]); } });
-router.post('/coupons', async (req, res) => { 
-    try { 
-        const data = deepSanitize(req.body);
-        res.json(await Coupon.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true })); 
-    } catch { res.status(500).json({}); } 
-});
-router.delete('/coupons/:id', async (req, res) => { try { await Coupon.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
-
-// Users
-router.get('/users', async (req, res) => { try { res.json(await User.find({}).lean() || []); } catch { res.json([]); } });
-router.post('/users', async (req, res) => { try { res.json(await User.findOneAndUpdate({ email: req.body.email }, deepSanitize(req.body), { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 
 module.exports = router;
