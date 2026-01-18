@@ -83,23 +83,28 @@ const setPersisted = (key: string, data: any) => {
 const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise<T> => {
     const cached = getCacheSync(key, null);
     
-    // Background sync
-    const syncPromise = apiRequest(endpoint).then(freshData => {
+    // Background sync logic
+    const syncWithServer = async (): Promise<T | null> => {
+        const freshData = await apiRequest(endpoint);
         if (freshData !== null) {
-            const hasData = Array.isArray(freshData) ? freshData.length > 0 : !!freshData;
-            if (hasData) {
-                setPersisted(key, freshData);
-                return freshData as unknown as T;
-            }
+            // Fix: We must update the cache even if data is empty ([]) 
+            // to ensure deletions persist after a manual cache clear.
+            setPersisted(key, freshData);
+            return freshData as unknown as T;
         }
         return null;
-    });
+    };
 
-    // If we have cache, return it now
-    if (cached) return cached as unknown as T;
+    // If we have cache, return it now and sync in background
+    if (cached) {
+        syncWithServer();
+        return cached as unknown as T;
+    }
 
-    // If no cache, return the fallback immediately to keep the UI snappy
-    return fallback;
+    // If no cache (e.g., after Clear Global Cache), we wait for the first response
+    // to prevent the UI from flashing hardcoded INITIAL_PRODUCTS which might have been deleted.
+    const fresh = await syncWithServer();
+    return fresh !== null ? fresh : fallback;
 };
 
 // --- READ OPERATIONS ---
