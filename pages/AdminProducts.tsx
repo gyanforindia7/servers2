@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { AdminLayout } from '../components/AdminLayout';
+import { AdminLayout, useAdmin } from '../components/AdminLayout';
 import { getProducts, saveProduct, deleteProduct, getCategories, getBrands, formatCurrency } from '../services/db';
 import { generateProductDescription, generateSEOData } from '../services/ai';
 import { Product, Category, Brand } from '../types';
-// Fix: Removed non-existent 'Layout' import from Icons
 import { Plus, Trash2, Settings, Search, Globe, ArrowRight, ShoppingCart, Tag, CheckCircle, Sparkles, ImageIcon } from '../components/Icons';
 import { ImageUploader } from '../components/ImageUploader';
 import { RichTextEditor } from '../components/RichTextEditor';
@@ -12,11 +11,13 @@ import { useApp } from '../App';
 
 export const AdminProducts: React.FC = () => {
   const { settings, refreshGlobalData } = useApp();
+  const { notify } = useAdmin();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [filter, setFilter] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [view, setView] = useState<'list' | 'form'>('list');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -44,7 +45,6 @@ export const AdminProducts: React.FC = () => {
 
   useEffect(() => { refresh(); }, []);
 
-  // Auto-slugging Logic
   useEffect(() => {
     if (!editingProduct && formData.name) {
       const generatedSlug = formData.name.toLowerCase()
@@ -57,30 +57,44 @@ export const AdminProducts: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.category) {
-        alert("Please select a category.");
+        notify("Please select a category.", 'error');
         return;
     }
-    const newProduct: Product = {
-      ...formData,
-      id: editingProduct ? editingProduct.id : `p-${Date.now()}`,
-    };
-    await saveProduct(newProduct);
-    await refreshGlobalData();
-    setView('list');
-    setEditingProduct(null);
-    refresh();
+    
+    setIsSaving(true);
+    try {
+        const newProduct: Product = {
+            ...formData,
+            id: editingProduct ? editingProduct.id : `p-${Date.now()}`,
+        };
+        await saveProduct(newProduct);
+        notify("Product saved successfully!");
+        await refreshGlobalData();
+        setView('list');
+        setEditingProduct(null);
+        refresh();
+    } catch (err: any) {
+        notify(err.message || "Failed to save product.", 'error');
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const handleDeleteProduct = async (id: string) => {
     if (window.confirm('Are you sure you want to permanently delete this product?')) {
-      await deleteProduct(id);
-      await refreshGlobalData();
-      refresh();
+      try {
+        await deleteProduct(id);
+        notify("Product deleted.");
+        await refreshGlobalData();
+        refresh();
+      } catch (err: any) {
+        notify(err.message || "Delete failed.", 'error');
+      }
     }
   };
 
   const handleAIGenerate = async () => {
-    if (!formData.name || !formData.brand) { alert("Enter product name and brand first."); return; }
+    if (!formData.name || !formData.brand) { notify("Enter product name and brand first.", 'error'); return; }
     setIsGenerating(true);
     try {
         const description = await generateProductDescription(formData.name, formData.brand, formData.category);
@@ -92,6 +106,9 @@ export const AdminProducts: React.FC = () => {
                 seo: { ...prev.seo!, metaTitle: seoData.metaTitle, metaDescription: seoData.metaDescription, keywords: seoData.keywords }
             }));
         }
+        notify("AI description and SEO generated!");
+    } catch (err) {
+        notify("AI generation failed.", 'error');
     } finally { setIsGenerating(false); }
   };
 
@@ -144,7 +161,7 @@ export const AdminProducts: React.FC = () => {
       {view === 'list' ? (
         <>
           <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold dark:text-white">Products</h2>
+            <h2 className="text-2xl font-bold dark:text-white">Product Catalog</h2>
             <button onClick={() => switchToForm()} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"><Plus size={18} /> Add Product</button>
           </div>
           <div className="bg-white dark:bg-slate-900 rounded-xl border dark:border-slate-800 shadow-sm overflow-hidden">
@@ -192,7 +209,9 @@ export const AdminProducts: React.FC = () => {
               <button onClick={() => setView('list')} className="text-slate-400 hover:text-slate-600"><ArrowRight className="rotate-180" size={24} /></button>
               <h3 className="text-xl font-bold dark:text-white">{editingProduct ? 'Edit' : 'New'} Product</h3>
             </div>
-            <button onClick={handleSubmit} className="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">Save Changes</button>
+            <button onClick={handleSubmit} disabled={isSaving} className="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50">
+              {isSaving ? 'Saving...' : 'Save Product'}
+            </button>
           </div>
           
           <div className="flex border-b dark:border-slate-800 px-6 overflow-x-auto no-scrollbar bg-white dark:bg-slate-900 sticky top-0 z-10">
@@ -317,10 +336,6 @@ export const AdminProducts: React.FC = () => {
                           <label className="block text-xs font-bold mb-1 uppercase text-slate-400 tracking-widest">Keywords (Comma separated)</label>
                           <input type="text" className="w-full p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={formData.seo?.keywords} onChange={e => setFormData({...formData, seo: {...formData.seo!, keywords: e.target.value}})} />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div><label className="block text-xs font-bold mb-1 uppercase text-slate-400 tracking-widest">Canonical URL</label><input type="text" className="w-full p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={formData.seo?.canonicalUrl || ''} onChange={e => setFormData({...formData, seo: {...formData.seo!, canonicalUrl: e.target.value}})} /></div>
-                        <div><label className="block text-xs font-bold mb-1 uppercase text-slate-400 tracking-widest">Robots</label><select className="w-full p-3 border rounded-lg bg-white dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={formData.seo?.robots || 'index, follow'} onChange={e => setFormData({...formData, seo: {...formData.seo!, robots: e.target.value}})}><option>index, follow</option><option>noindex, nofollow</option></select></div>
-                      </div>
                   </div>
               )}
 
@@ -330,20 +345,14 @@ export const AdminProducts: React.FC = () => {
                           <ShoppingCart size={18} className="text-blue-600"/>
                           <h4 className="font-bold">Google Shopping Feed (GMC)</h4>
                       </div>
-                      <p className="text-sm text-slate-500 mb-4">Fill these fields to display your products on Google Shopping search results.</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-xs font-bold mb-1 uppercase text-slate-400 tracking-widest">GTIN / EAN</label>
                             <input type="text" className="w-full p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={formData.gmc?.gtin} onChange={e => setFormData({...formData, gmc: {...formData.gmc!, gtin: e.target.value}})} />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold mb-1 uppercase text-slate-400 tracking-widest">MPN (Manufacturer Part Number)</label>
-                            {/* Fix: Property name should be 'mpn', not 'gsync' */}
+                            <label className="block text-xs font-bold mb-1 uppercase text-slate-400 tracking-widest">MPN</label>
                             <input type="text" className="w-full p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={formData.gmc?.mpn} onChange={e => setFormData({...formData, gmc: {...formData.gmc!, mpn: e.target.value}})} />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold mb-1 uppercase text-slate-400 tracking-widest">Google Product Category ID</label>
-                            <input type="text" className="w-full p-3 border rounded-lg dark:bg-slate-950 dark:border-slate-700 dark:text-white" value={formData.gmc?.googleProductCategory} onChange={e => setFormData({...formData, gmc: {...formData.gmc!, googleProductCategory: e.target.value}})} />
                         </div>
                       </div>
                   </div>
