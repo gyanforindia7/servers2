@@ -1,4 +1,3 @@
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -35,12 +34,12 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Database Auto-Seeding (Only if truly empty)
+// Database Auto-Seeding (Strictly for fresh environments)
 const seedDatabase = async () => {
     try {
         const catCount = await Category.countDocuments();
         if (catCount === 0) {
-            console.log('Seeding default categories...');
+            console.log('Database empty. Seeding defaults...');
             const categoryNames = ['Servers', 'Storage', 'Workstations', 'Laptops', 'Option & Spares'];
             const categories = categoryNames.map((name, i) => ({
                 id: `cat-${i+1}`,
@@ -49,24 +48,24 @@ const seedDatabase = async () => {
                 showOnHome: true, showInMenu: true, showInFooter: true, sortOrder: i
             }));
             await Category.insertMany(categories);
-        }
-
-        const prodCount = await Product.countDocuments();
-        if (prodCount === 0) {
-            console.log('Seeding initial products...');
-            const initialProducts = [
-                {
-                    id: 'p1', name: 'Dell PowerEdge R750', slug: 'dell-poweredge-r750', sku: 'DELL-R750-001',
-                    category: 'Servers', brand: 'Dell', price: 375000, stock: 10, isActive: true, condition: 'New',
-                    imageUrl: 'https://picsum.photos/seed/server1/400/300',
-                    description: 'The Dell EMC PowerEdge R750 is a full-featured enterprise server.',
-                    specs: { 'CPU': '2x Intel Xeon Gold', 'RAM': '64GB DDR4', 'Form Factor': '2U Rack' }
-                }
-            ];
-            await Product.insertMany(initialProducts);
+            
+            // Seed sample product ONLY if categories were seeded
+            const prodCount = await Product.countDocuments();
+            if (prodCount === 0) {
+                const initialProducts = [
+                    {
+                        id: 'p1', name: 'Dell PowerEdge R750', slug: 'dell-poweredge-r750', sku: 'DELL-R750-001',
+                        category: 'Servers', brand: 'Dell', price: 375000, stock: 10, isActive: true, condition: 'New',
+                        imageUrl: 'https://picsum.photos/seed/server1/400/300',
+                        description: 'The Dell EMC PowerEdge R750 is a full-featured enterprise server.',
+                        specs: { 'CPU': '2x Intel Xeon Gold', 'RAM': '64GB DDR4', 'Form Factor': '2U Rack' }
+                    }
+                ];
+                await Product.insertMany(initialProducts);
+            }
         }
     } catch (err) {
-        console.error('Seeding Error:', err);
+        console.error('Seeding error avoided:', err.message);
     }
 };
 
