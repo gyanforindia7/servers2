@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const { GoogleGenAI } = require('@google/genai');
@@ -5,11 +6,11 @@ const {
   Product, Order, User, Settings, Category, Brand, Page, 
   Quote, Contact, Coupon, BlogPost 
 } = require('./models');
+const mongoose = require('mongoose');
 
-// GUIDELINE: Strictly use process.env.API_KEY for GenAI
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// --- AI Endpoints ---
+// AI Proxy Routes
 router.post('/ai/description', async (req, res) => {
     try {
         const { productName, brand, category } = req.body;
@@ -33,7 +34,7 @@ router.post('/ai/seo', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "AI Error" }); }
 });
 
-// --- Products (Ensuring full list retrieval) ---
+// Products Routes
 router.get('/products/all', async (req, res) => {
     try {
       const products = await Product.find({}).sort({ updatedAt: -1 }).lean();
@@ -59,12 +60,16 @@ router.put('/products/:id', async (req, res) => {
 
 router.delete('/products/:id', async (req, res) => {
     try {
-        await Product.deleteOne({ id: req.params.id });
+        // Double-check: delete by custom id field or Mongo _id
+        const result = await Product.deleteOne({ id: req.params.id });
+        if (result.deletedCount === 0 && mongoose.Types.ObjectId.isValid(req.params.id)) {
+            await Product.deleteOne({ _id: req.params.id });
+        }
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- Categories ---
+// Category Routes
 router.get('/categories', async (req, res) => {
     try {
         const cats = await Category.find({}).sort({ sortOrder: 1 }).lean();
@@ -86,7 +91,12 @@ router.delete('/categories/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- Settings ---
+// Brand Routes
+router.get('/brands', async (req, res) => { try { res.json(await Brand.find({}).lean() || []); } catch { res.json([]); } });
+router.post('/brands', async (req, res) => { try { res.json(await Brand.findOneAndUpdate({ id: req.body.id }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
+router.delete('/brands/:id', async (req, res) => { try { await Brand.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
+
+// Site Settings
 router.get('/settings', async (req, res) => {
     try {
         let settings = await Settings.findOne({ id: 'settings' });
@@ -104,37 +114,38 @@ router.post('/settings', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- General CRUD ---
-router.get('/brands', async (req, res) => { try { res.json(await Brand.find({}).lean() || []); } catch { res.json([]); } });
-router.post('/brands', async (req, res) => { try { res.json(await Brand.findOneAndUpdate({ id: req.body.id }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
-router.delete('/brands/:id', async (req, res) => { try { await Brand.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
-
+// CMS Pages
 router.get('/pages', async (req, res) => { try { res.json(await Page.find({}).sort({ sortOrder: 1 }).lean() || []); } catch { res.json([]); } });
 router.post('/pages', async (req, res) => { try { res.json(await Page.findOneAndUpdate({ id: req.body.id }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 router.delete('/pages/:id', async (req, res) => { try { await Page.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
+// Blog Posts
 router.get('/blog', async (req, res) => { try { res.json(await BlogPost.find({}).sort({ date: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/blog', async (req, res) => { try { res.json(await BlogPost.findOneAndUpdate({ id: req.body.id }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 router.delete('/blog/:id', async (req, res) => { try { await BlogPost.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
+// Orders
 router.get('/orders', async (req, res) => { try { res.json(await Order.find({}).sort({ createdAt: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/orders', async (req, res) => { try { res.json(await new Order({ ...req.body, id: `ORD-${Date.now()}` }).save()); } catch { res.status(500).json({}); } });
 router.put('/orders/:id', async (req, res) => { try { res.json(await Order.findOneAndUpdate({ id: req.params.id }, req.body, { new: true })); } catch { res.status(500).json({}); } });
 router.delete('/orders/:id', async (req, res) => { try { await Order.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
+// Quotes
 router.get('/quotes', async (req, res) => { try { res.json(await Quote.find({}).sort({ createdAt: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/quotes', async (req, res) => { try { res.json(await new Quote({ ...req.body, id: `QT-${Date.now()}`, date: new Date() }).save()); } catch { res.status(500).json({}); } });
 router.delete('/quotes/:id', async (req, res) => { try { await Quote.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
+// Messages
 router.get('/contact', async (req, res) => { try { res.json(await Contact.find({}).sort({ createdAt: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/contact', async (req, res) => { try { res.json(await new Contact({ ...req.body, id: `MSG-${Date.now()}`, date: new Date() }).save()); } catch { res.status(500).json({}); } });
 router.delete('/contact/:id', async (req, res) => { try { await Contact.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
+// Coupons
 router.get('/coupons', async (req, res) => { try { res.json(await Coupon.find({}).lean() || []); } catch { res.json([]); } });
 router.post('/coupons', async (req, res) => { try { res.json(await Coupon.findOneAndUpdate({ id: req.body.id }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 router.delete('/coupons/:id', async (req, res) => { try { await Coupon.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
-// --- User Endpoints ---
+// Users
 router.get('/users', async (req, res) => { try { res.json(await User.find({}).lean() || []); } catch { res.json([]); } });
 router.post('/users', async (req, res) => { try { res.json(await User.findOneAndUpdate({ email: req.body.email }, req.body, { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 
