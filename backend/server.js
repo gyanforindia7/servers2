@@ -14,8 +14,8 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 /**
- * CACHE INVALIDATION MIDDLEWARE
- * Forces staging environments and browsers to bypass CDNs/Cache for API requests.
+ * API ROUTE MOUNTING
+ * Standard mounting to ensure all /api requests reach the routes.js router.
  */
 app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -23,14 +23,17 @@ app.use('/api', (req, res, next) => {
     res.setHeader('Expires', '0');
     res.setHeader('Surrogate-Control', 'no-store');
     next();
-}, apiRoutes);
+});
+
+// Explicitly mount the router
+app.use('/api', apiRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         dbConnected: mongoose.connection.readyState === 1,
-        env: process.env.NODE_ENV
+        time: new Date().toISOString()
     });
 });
 
@@ -49,7 +52,6 @@ const seedDatabase = async () => {
             }));
             await Category.insertMany(categories);
             
-            // Seed sample product ONLY if categories were seeded
             const prodCount = await Product.countDocuments();
             if (prodCount === 0) {
                 const initialProducts = [
@@ -65,7 +67,7 @@ const seedDatabase = async () => {
             }
         }
     } catch (err) {
-        console.error('Seeding error avoided:', err.message);
+        console.error('Seeding avoided:', err.message);
     }
 };
 
@@ -81,12 +83,16 @@ if (mongoUri) {
   });
 }
 
+// Static File Serving (Must be after API routes)
 const distPath = path.join(process.cwd(), 'dist');
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api')) {
+        // Only serve index.html if it's NOT an API request
+        if (!req.url.startsWith('/api')) {
             res.sendFile(path.join(distPath, 'index.html'));
+        } else {
+            res.status(404).json({ error: 'API endpoint not found' });
         }
     });
 }
