@@ -116,7 +116,7 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Individual Category Product Grids - Updated Grid for Mobile (2 items) */}
+      {/* Individual Category Product Grids */}
       {homeCategories.map((category) => (
           <CategoryProductGrid key={category.id} category={category} />
       ))}
@@ -192,8 +192,8 @@ const CategoryProductGrid: React.FC<{ category: Category }> = ({ category }) => 
                 </Link>
               </div>
 
-              {/* Mobile: grid-cols-2 */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-6">
+              {/* Grid set to exactly 5 columns from medium screens up to satisfy "5 products in a row" */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-6">
                 {products.map(product => (
                   <ProductCard key={product.id} product={product} />
                 ))}
