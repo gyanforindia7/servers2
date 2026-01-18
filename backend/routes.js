@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const { GoogleGenAI } = require('@google/genai');
@@ -15,7 +16,8 @@ if (process.env.API_KEY) {
 
 /**
  * RECURSIVE DEEP SANITIZE
- * Strips _id and __v from any depth to prevent Mongoose "Immutable Field" errors.
+ * Strips _id and __v from all levels of the object.
+ * Necessary because Mongoose throws errors if these fields are modified or included in updates.
  */
 const deepSanitize = (obj) => {
     if (Array.isArray(obj)) {
@@ -34,18 +36,16 @@ const deepSanitize = (obj) => {
 
 /**
  * UNIFIED UPSERT HANDLER
- * Standardizes saving logic across all entity types.
+ * Ensures consistent saving behavior across all store entities.
  */
 const handleUpsert = async (Model, req, res, queryField = 'id') => {
     try {
         const data = deepSanitize(req.body);
-        const queryId = data[queryField] || req.params.id;
+        const queryId = data[queryField];
         
         if (!queryId || queryId === "") {
             const prefix = Model.modelName.toLowerCase().substring(0,1);
             data[queryField] = `${prefix}-${Date.now()}`;
-        } else {
-            data[queryField] = queryId;
         }
 
         const result = await Model.findOneAndUpdate(
@@ -55,15 +55,15 @@ const handleUpsert = async (Model, req, res, queryField = 'id') => {
         );
         res.json(result);
     } catch (err) {
-        console.error(`Save Error [${Model.modelName}]:`, err);
+        console.error(`Database Save Error [${Model.modelName}]:`, err);
         res.status(500).json({ error: err.message });
     }
 };
 
-// --- AI Proxy Routes ---
+// --- AI Services ---
 router.post('/ai/description', async (req, res) => {
     try {
-        if (!ai) return res.status(500).json({ error: "AI not configured" });
+        if (!ai) return res.status(500).json({ error: "AI service not configured" });
         const { productName, brand, category } = req.body;
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -75,7 +75,7 @@ router.post('/ai/description', async (req, res) => {
 
 router.post('/ai/seo', async (req, res) => {
     try {
-        if (!ai) return res.status(500).json({ error: "AI not configured" });
+        if (!ai) return res.status(500).json({ error: "AI service not configured" });
         const { productName, description } = req.body;
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -86,7 +86,7 @@ router.post('/ai/seo', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "AI Error" }); }
 });
 
-// --- Entities Routes ---
+// --- Store Entity Routes ---
 
 // Products
 router.get('/products/all', async (req, res) => {
@@ -139,7 +139,7 @@ router.get('/settings', async (req, res) => {
     try {
         let settings = await Settings.findOne({ id: 'settings' });
         if (!settings) {
-            settings = await new Settings({ id: 'settings', supportPhone: '...', supportEmail: '...', address: '...' }).save();
+            settings = await new Settings({ id: 'settings', supportPhone: '+91 000 000 0000', supportEmail: 'support@serverpro.com', address: 'Enterprise Hub' }).save();
         }
         res.json(settings);
     } catch (err) { res.status(500).json({}); }
