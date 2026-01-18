@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const { GoogleGenAI } = require('@google/genai');
@@ -11,15 +10,23 @@ const mongoose = require('mongoose');
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * HELPER: Clean body for Mongoose
- * Removes _id and __v to prevent "The _id field cannot be changed" errors during updates.
+ * RECURSIVE DEEP SANITIZE
+ * Removes _id and __v from the top level and all nested children.
+ * This is vital to prevent Mongoose from failing updates due to immutable fields.
  */
-const sanitize = (data) => {
-    if (!data) return data;
-    const clean = { ...data };
-    delete clean._id;
-    delete clean.__v;
-    return clean;
+const deepSanitize = (obj) => {
+    if (Array.isArray(obj)) {
+        return obj.map(deepSanitize);
+    } else if (obj !== null && typeof obj === 'object') {
+        const newObj = {};
+        for (const key in obj) {
+            if (key !== '_id' && key !== '__v') {
+                newObj[key] = deepSanitize(obj[key]);
+            }
+        }
+        return newObj;
+    }
+    return obj;
 };
 
 // AI Proxy Routes
@@ -56,7 +63,7 @@ router.get('/products/all', async (req, res) => {
 
 router.post('/products', async (req, res) => {
   try {
-    const data = sanitize(req.body);
+    const data = deepSanitize(req.body);
     if (!data.id) data.id = `p-${Date.now()}`;
     const newProduct = await Product.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true });
     res.json(newProduct);
@@ -65,7 +72,7 @@ router.post('/products', async (req, res) => {
 
 router.put('/products/:id', async (req, res) => {
     try {
-        const data = sanitize(req.body);
+        const data = deepSanitize(req.body);
         const updated = await Product.findOneAndUpdate({ id: req.params.id }, data, { new: true });
         res.json(updated);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -91,7 +98,7 @@ router.get('/categories', async (req, res) => {
 
 router.post('/categories', async (req, res) => {
     try {
-        const data = sanitize(req.body);
+        const data = deepSanitize(req.body);
         const cat = await Category.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true });
         res.json(cat);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -108,7 +115,7 @@ router.delete('/categories/:id', async (req, res) => {
 router.get('/brands', async (req, res) => { try { res.json(await Brand.find({}).lean() || []); } catch { res.json([]); } });
 router.post('/brands', async (req, res) => { 
     try { 
-        const data = sanitize(req.body);
+        const data = deepSanitize(req.body);
         res.json(await Brand.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true })); 
     } catch { res.status(500).json({}); } 
 });
@@ -127,7 +134,7 @@ router.get('/settings', async (req, res) => {
 
 router.post('/settings', async (req, res) => {
     try {
-        const data = sanitize(req.body);
+        const data = deepSanitize(req.body);
         const settings = await Settings.findOneAndUpdate({ id: 'settings' }, data, { upsert: true, new: true });
         res.json(settings);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -137,7 +144,7 @@ router.post('/settings', async (req, res) => {
 router.get('/pages', async (req, res) => { try { res.json(await Page.find({}).sort({ sortOrder: 1 }).lean() || []); } catch { res.json([]); } });
 router.post('/pages', async (req, res) => { 
     try { 
-        const data = sanitize(req.body);
+        const data = deepSanitize(req.body);
         res.json(await Page.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true })); 
     } catch { res.status(500).json({}); } 
 });
@@ -147,7 +154,7 @@ router.delete('/pages/:id', async (req, res) => { try { await Page.deleteOne({ i
 router.get('/blog', async (req, res) => { try { res.json(await BlogPost.find({}).sort({ date: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/blog', async (req, res) => { 
     try { 
-        const data = sanitize(req.body);
+        const data = deepSanitize(req.body);
         res.json(await BlogPost.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true })); 
     } catch { res.status(500).json({}); } 
 });
@@ -156,7 +163,7 @@ router.delete('/blog/:id', async (req, res) => { try { await BlogPost.deleteOne(
 // Orders
 router.get('/orders', async (req, res) => { try { res.json(await Order.find({}).sort({ createdAt: -1 }).lean() || []); } catch { res.json([]); } });
 router.post('/orders', async (req, res) => { try { res.json(await new Order({ ...req.body, id: `ORD-${Date.now()}` }).save()); } catch { res.status(500).json({}); } });
-router.put('/orders/:id', async (req, res) => { try { res.json(await Order.findOneAndUpdate({ id: req.params.id }, sanitize(req.body), { new: true })); } catch { res.status(500).json({}); } });
+router.put('/orders/:id', async (req, res) => { try { res.json(await Order.findOneAndUpdate({ id: req.params.id }, deepSanitize(req.body), { new: true })); } catch { res.status(500).json({}); } });
 router.delete('/orders/:id', async (req, res) => { try { await Order.deleteOne({ id: req.params.id }); res.json({ success: true }); } catch { res.status(500).json({}); } });
 
 // Quotes
@@ -173,7 +180,7 @@ router.delete('/contact/:id', async (req, res) => { try { await Contact.deleteOn
 router.get('/coupons', async (req, res) => { try { res.json(await Coupon.find({}).lean() || []); } catch { res.json([]); } });
 router.post('/coupons', async (req, res) => { 
     try { 
-        const data = sanitize(req.body);
+        const data = deepSanitize(req.body);
         res.json(await Coupon.findOneAndUpdate({ id: data.id }, data, { upsert: true, new: true })); 
     } catch { res.status(500).json({}); } 
 });
@@ -181,6 +188,6 @@ router.delete('/coupons/:id', async (req, res) => { try { await Coupon.deleteOne
 
 // Users
 router.get('/users', async (req, res) => { try { res.json(await User.find({}).lean() || []); } catch { res.json([]); } });
-router.post('/users', async (req, res) => { try { res.json(await User.findOneAndUpdate({ email: req.body.email }, sanitize(req.body), { upsert: true, new: true })); } catch { res.status(500).json({}); } });
+router.post('/users', async (req, res) => { try { res.json(await User.findOneAndUpdate({ email: req.body.email }, deepSanitize(req.body), { upsert: true, new: true })); } catch { res.status(500).json({}); } });
 
 module.exports = router;
