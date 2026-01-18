@@ -1,14 +1,14 @@
-
 import { Product, Order, User, SiteSettings, Category, Brand, PageContent, ContactMessage, QuoteRequest, Coupon, BlogPost, INITIAL_CATEGORY_NAMES } from '../types';
 import { INITIAL_PRODUCTS } from '../constants';
 
 /**
- * ULTRA-FAST DATABASE SERVICE (Zero-Wait Hydration)
- * Designed for 0ms perceived load times by prioritizing System Defaults -> Cache -> Server.
+ * ULTRA-FAST DATABASE SERVICE
+ * Optimized for real-time saving and cross-device consistency.
  */
 
 const API_URL = '/api';
 const MEM_CACHE: Record<string, any> = {};
+let lastWriteTimestamp = 0; // Tracks last change to avoid stale background syncs
 
 export const STABLE_KEYS = {
     PRODUCTS: 's2_stable_products',
@@ -19,14 +19,22 @@ export const STABLE_KEYS = {
 };
 
 /**
- * Clean data for server to prevent MongoDB conflict errors
+ * RECURSIVE Deep Clean
+ * Removes _id and __v from all nested levels of an object.
  */
-const cleanForServer = (data: any) => {
-    if (!data || typeof data !== 'object') return data;
-    const clean = { ...data };
-    delete clean._id;
-    delete clean.__v;
-    return clean;
+const deepCleanForServer = (obj: any): any => {
+    if (Array.isArray(obj)) {
+        return obj.map(deepCleanForServer);
+    } else if (obj !== null && typeof obj === 'object') {
+        const newObj: any = {};
+        for (const key in obj) {
+            if (key !== '_id' && key !== '__v') {
+                newObj[key] = deepCleanForServer(obj[key]);
+            }
+        }
+        return newObj;
+    }
+    return obj;
 };
 
 // Helper for immediate UI bootstrap
@@ -44,13 +52,15 @@ export const getCategoryDefaults = (): Category[] => {
 const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) => {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); 
+        const timeoutId = setTimeout(() => controller.abort(), 12000); 
         
-        // Add cache-busting timestamp to ALL requests to bypass Cloud Run / CDN caching
+        // Cache busting ONLY for GET requests
         const urlSeparator = endpoint.includes('?') ? '&' : '?';
-        const finalUrl = `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}${urlSeparator}_t=${Date.now()}`;
+        const finalUrl = method === 'GET' 
+            ? `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}${urlSeparator}_t=${Date.now()}`
+            : `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
-        const payload = body ? cleanForServer(body) : undefined;
+        const payload = body ? deepCleanForServer(body) : undefined;
 
         const response = await fetch(finalUrl, { 
             method, 
@@ -98,12 +108,18 @@ const setPersisted = (key: string, data: any) => {
 
 /**
  * fetchLive
- * Ensures visitors always get fresh data by strictly waiting for server if cache is missing.
+ * Prioritizes consistency for Admin actions.
  */
 const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise<T> => {
     const cached = getCacheSync(key, null);
     
     const syncWithServer = async (): Promise<T | null> => {
+        // PREVENT RACE CONDITION: If we just saved something, wait 10s before background syncing
+        // This ensures the DB has time to reflect the new state to the GET endpoint.
+        if (Date.now() - lastWriteTimestamp < 10000) {
+            return null;
+        }
+
         const freshData = await apiRequest(endpoint);
         if (freshData !== null) {
             setPersisted(key, freshData);
@@ -113,11 +129,10 @@ const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise
     };
 
     if (cached) {
-        syncWithServer(); // Background sync for next time
+        syncWithServer(); // Try syncing in background
         return cached as unknown as T;
     }
 
-    // Force wait for server if no local data exists (critical for visitors on other devices)
     const fresh = await syncWithServer();
     return fresh !== null ? fresh : fallback;
 };
@@ -136,16 +151,16 @@ export const getBrands = async (): Promise<Brand[]> => fetchLive(STABLE_KEYS.BRA
 // --- WRITE OPERATIONS ---
 
 export const saveProduct = async (product: Product): Promise<void> => {
+    lastWriteTimestamp = Date.now();
     const idToUse = product.id || `p-${Date.now()}`;
     const cleanProduct = { ...product, id: idToUse };
     
-    // Remote update FIRST
     const result = await apiRequest(product.id ? `/products/${idToUse}` : '/products', product.id ? 'PUT' : 'POST', cleanProduct);
     
     if (result) {
-        // Only update local state if server write succeeded
         const current = getCacheSync<Product[]>(STABLE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
-        const updatedList = [...current.filter(p => p.id !== idToUse), result]; // Use server-returned object
+        // Use result from server to ensure we have the correct DB representation
+        const updatedList = [...current.filter(p => p.id !== idToUse), result];
         setPersisted(STABLE_KEYS.PRODUCTS, updatedList);
     } else {
         throw new Error("Server communication failed. Change not saved.");
@@ -153,33 +168,30 @@ export const saveProduct = async (product: Product): Promise<void> => {
 };
 
 export const saveCategory = async (cat: Category): Promise<void> => {
+    lastWriteTimestamp = Date.now();
     const idToUse = cat.id || `cat-${Date.now()}`;
     const result = await apiRequest('/categories', 'POST', { ...cat, id: idToUse });
     if (result) {
         const current = getCacheSync<Category[]>(STABLE_KEYS.CATEGORIES, getCategoryDefaults());
         setPersisted(STABLE_KEYS.CATEGORIES, [...current.filter(c => c.id !== idToUse), result]);
-    } else {
-        throw new Error("Server communication failed. Category not saved.");
     }
 };
 
 export const deleteProduct = async (id: string) => { 
+    lastWriteTimestamp = Date.now();
     const result = await apiRequest(`/products/${id}`, 'DELETE'); 
     if (result) {
         const current = getCacheSync<Product[]>(STABLE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
         setPersisted(STABLE_KEYS.PRODUCTS, current.filter(p => p.id !== id)); 
-    } else {
-        throw new Error("Could not delete product from database.");
     }
 };
 
 export const deleteCategory = async (id: string) => { 
+    lastWriteTimestamp = Date.now();
     const result = await apiRequest(`/categories/${id}`, 'DELETE'); 
     if (result) {
         const current = getCacheSync<Category[]>(STABLE_KEYS.CATEGORIES, getCategoryDefaults());
         setPersisted(STABLE_KEYS.CATEGORIES, current.filter(c => c.id !== id)); 
-    } else {
-        throw new Error("Could not delete category from database.");
     }
 };
 
@@ -215,39 +227,18 @@ export const markMessageRead = (id: string) => apiRequest(`/contact/${id}/read`,
 export const validateCoupon = async (code: string, total: number) => ((await apiRequest('/coupons')) || []).find((c: any) => c.code === code && c.isActive && (c.minOrderValue || 0) <= total) || null;
 export const getBlogPosts = async () => (await apiRequest('/blog')) || [];
 export const getBlogPostBySlug = async (slug: string) => (await getBlogPosts()).find((p: any) => p.slug === slug);
-export const saveBlogPost = async (post: BlogPost) => apiRequest('/blog', 'POST', post);
-export const deleteBlogPost = async (id: string) => apiRequest(`/blog/${id}`, 'DELETE');
+export const saveBlogPost = async (post: BlogPost) => { lastWriteTimestamp = Date.now(); return apiRequest('/blog', 'POST', post); };
+export const deleteBlogPost = async (id: string) => { lastWriteTimestamp = Date.now(); return apiRequest(`/blog/${id}`, 'DELETE'); };
 export const getCoupons = async () => (await apiRequest('/coupons')) || [];
-export const saveCoupon = async (coupon: Coupon) => apiRequest('/coupons', 'POST', coupon);
-export const deleteCoupon = async (id: string) => apiRequest(`/coupons/${id}`, 'DELETE');
+export const saveCoupon = async (coupon: Coupon) => { lastWriteTimestamp = Date.now(); return apiRequest('/coupons', 'POST', coupon); };
+export const deleteCoupon = async (id: string) => { lastWriteTimestamp = Date.now(); return apiRequest(`/coupons/${id}`, 'DELETE'); };
 export const cancelOrder = (id: string, reason: string) => apiRequest(`/orders/${id}/cancel`, 'POST', { reason });
 export const getUserOrders = async (userId: string) => (await getOrders()).filter((o: any) => o.userId === userId);
 export const getOrderById = async (id: string) => (await getOrders()).find((o: any) => o.id === id);
-export const saveSiteSettings = async (settings: SiteSettings) => { 
-    const res = await apiRequest('/settings', 'POST', settings);
-    if (res) setPersisted(STABLE_KEYS.SETTINGS, res);
-};
-export const saveBrand = async (brand: Brand) => { 
-    const result = await apiRequest('/brands', 'POST', brand); 
-    if (result) { 
-        const current = getCacheSync<Brand[]>(STABLE_KEYS.BRANDS, []); 
-        setPersisted(STABLE_KEYS.BRANDS, [...current.filter(b => b.id !== brand.id), result]); 
-    } 
-};
-export const deleteBrand = async (id: string) => { 
-    const result = await apiRequest(`/brands/${id}`, 'DELETE'); 
-    if (result) { setPersisted(STABLE_KEYS.BRANDS, getCacheSync<Brand[]>(STABLE_KEYS.BRANDS, []).filter(b => b.id !== id)); } 
-};
-export const savePage = async (page: PageContent) => { 
-    const result = await apiRequest('/pages', 'POST', page); 
-    if (result) { 
-        const current = getCacheSync<PageContent[]>(STABLE_KEYS.PAGES, []); 
-        setPersisted(STABLE_KEYS.PAGES, [...current.filter(p => p.id !== page.id), result]); 
-    } 
-};
-export const deletePage = async (id: string) => { 
-    const result = await apiRequest(`/pages/${id}`, 'DELETE'); 
-    if (result) { setPersisted(STABLE_KEYS.PAGES, getCacheSync<PageContent[]>(STABLE_KEYS.PAGES, []).filter(p => p.id !== id)); } 
-};
+export const saveSiteSettings = async (settings: SiteSettings) => { lastWriteTimestamp = Date.now(); const res = await apiRequest('/settings', 'POST', settings); if (res) setPersisted(STABLE_KEYS.SETTINGS, res); };
+export const saveBrand = async (brand: Brand) => { lastWriteTimestamp = Date.now(); const result = await apiRequest('/brands', 'POST', brand); if (result) { const current = getCacheSync<Brand[]>(STABLE_KEYS.BRANDS, []); setPersisted(STABLE_KEYS.BRANDS, [...current.filter(b => b.id !== brand.id), result]); } };
+export const deleteBrand = async (id: string) => { lastWriteTimestamp = Date.now(); const result = await apiRequest(`/brands/${id}`, 'DELETE'); if (result) { setPersisted(STABLE_KEYS.BRANDS, getCacheSync<Brand[]>(STABLE_KEYS.BRANDS, []).filter(b => b.id !== id)); } };
+export const savePage = async (page: PageContent) => { lastWriteTimestamp = Date.now(); const result = await apiRequest('/pages', 'POST', page); if (result) { const current = getCacheSync<PageContent[]>(STABLE_KEYS.PAGES, []); setPersisted(STABLE_KEYS.PAGES, [...current.filter(p => p.id !== page.id), result]); } };
+export const deletePage = async (id: string) => { lastWriteTimestamp = Date.now(); const result = await apiRequest(`/pages/${id}`, 'DELETE'); if (result) { setPersisted(STABLE_KEYS.PAGES, getCacheSync<PageContent[]>(STABLE_KEYS.PAGES, []).filter(p => p.id !== id)); } };
 export const getPageBySlug = async (slug: string) => (await getPages()).find(p => p.slug === slug);
 export const clearAllCache = () => { Object.keys(MEM_CACHE).forEach(k => delete MEM_CACHE[k]); Object.values(STABLE_KEYS).forEach(k => localStorage.removeItem(k)); };
