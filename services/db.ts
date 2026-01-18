@@ -35,7 +35,13 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000); 
         
-        const response = await fetch(`${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`, { 
+        // Add cache-busting timestamp to GET requests to prevent stale results in staging/production
+        const urlSeparator = endpoint.includes('?') ? '&' : '?';
+        const finalUrl = method === 'GET' 
+            ? `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}${urlSeparator}_t=${Date.now()}`
+            : `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
+        const response = await fetch(finalUrl, { 
             method, 
             headers: { 'Content-Type': 'application/json' },
             body: body ? JSON.stringify(body) : undefined,
@@ -50,6 +56,7 @@ const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) 
         }
         return { success: true };
     } catch (err) {
+        console.error(`API Request Failed [${method} ${endpoint}]:`, err);
         return null;
     }
 };
@@ -70,7 +77,7 @@ export const getCacheSync = <T>(key: string, fallback: T): T => {
 };
 
 const setPersisted = (key: string, data: any) => {
-    if (JSON.stringify(MEM_CACHE[key]) === JSON.stringify(data)) return;
+    // Immediate memory update to ensure UI feels snappy
     MEM_CACHE[key] = data;
     try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
 };
@@ -87,8 +94,7 @@ const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise
     const syncWithServer = async (): Promise<T | null> => {
         const freshData = await apiRequest(endpoint);
         if (freshData !== null) {
-            // Fix: We must update the cache even if data is empty ([]) 
-            // to ensure deletions persist after a manual cache clear.
+            // Update cache even if data is empty ([]) to reflect deletions
             setPersisted(key, freshData);
             return freshData as unknown as T;
         }
@@ -97,12 +103,11 @@ const fetchLive = async <T>(key: string, endpoint: string, fallback: T): Promise
 
     // If we have cache, return it now and sync in background
     if (cached) {
-        syncWithServer();
+        syncWithServer(); // Fire and forget background sync
         return cached as unknown as T;
     }
 
-    // If no cache (e.g., after Clear Global Cache), we wait for the first response
-    // to prevent the UI from flashing hardcoded INITIAL_PRODUCTS which might have been deleted.
+    // If no cache (e.g., first visit on new device), wait for the server
     const fresh = await syncWithServer();
     return fresh !== null ? fresh : fallback;
 };
@@ -128,7 +133,12 @@ export const saveProduct = async (product: Product): Promise<void> => {
     const current = getCacheSync<Product[]>(STABLE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
     const idToUse = product.id || `p-${Date.now()}`;
     const cleanProduct = { ...product, id: idToUse };
-    setPersisted(STABLE_KEYS.PRODUCTS, [...current.filter(p => p.id !== idToUse), cleanProduct]);
+    
+    // Optimistic local update
+    const updatedList = [...current.filter(p => p.id !== idToUse), cleanProduct];
+    setPersisted(STABLE_KEYS.PRODUCTS, updatedList);
+    
+    // Remote update
     await apiRequest(product.id ? `/products/${idToUse}` : '/products', product.id ? 'PUT' : 'POST', cleanProduct);
 };
 
@@ -140,7 +150,6 @@ export const saveCategory = async (cat: Category): Promise<void> => {
     await apiRequest('/categories', 'POST', cleanCat);
 };
 
-// Fixed: Made deletion functions async and improved cache fallbacks
 export const deleteProduct = async (id: string) => { 
     const current = getCacheSync<Product[]>(STABLE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
     setPersisted(STABLE_KEYS.PRODUCTS, current.filter(p => p.id !== id)); 
